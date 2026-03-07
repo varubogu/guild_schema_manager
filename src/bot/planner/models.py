@@ -7,6 +7,14 @@ from typing import Any
 from bot.diff.models import DiffChange
 
 
+def _new_apply_operation_list() -> list["ApplyOperation"]:
+    return []
+
+
+def _new_failed_item_list() -> list[dict[str, Any]]:
+    return []
+
+
 @dataclass(slots=True)
 class ApplyOperation:
     operation_id: str
@@ -20,16 +28,16 @@ class ApplyOperation:
 
 @dataclass(slots=True)
 class ApplyPlan:
-    operations: list[ApplyOperation] = field(default_factory=list)
+    operations: list[ApplyOperation] = field(default_factory=_new_apply_operation_list)
     created_at: datetime | None = None
 
 
 @dataclass(slots=True)
 class ApplyReport:
     backup_file: bytes
-    applied: list[ApplyOperation] = field(default_factory=list)
-    failed: list[dict[str, Any]] = field(default_factory=list)
-    skipped: list[dict[str, Any]] = field(default_factory=list)
+    applied: list[ApplyOperation] = field(default_factory=_new_apply_operation_list)
+    failed: list[dict[str, Any]] = field(default_factory=_new_failed_item_list)
+    skipped: list[dict[str, Any]] = field(default_factory=_new_failed_item_list)
 
 
 def operation_from_change(change: DiffChange, index: int) -> ApplyOperation:

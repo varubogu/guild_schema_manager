@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections import Counter
 from dataclasses import asdict
 import json
-from typing import Any
+from typing import Any, cast
 
 try:
     import yaml
@@ -13,9 +13,11 @@ except ModuleNotFoundError:  # pragma: no cover - fallback for minimal runtime
 from .errors import SchemaValidationError
 from .models import (
     CategorySchema,
+    ChannelType,
     ChannelSchema,
     GuildInfo,
     GuildSchema,
+    OverwriteTargetType,
     OverwriteTarget,
     PermissionOverwrite,
     RoleSchema,
@@ -65,10 +67,10 @@ def parse_schema_yaml(raw: bytes | str) -> GuildSchema:
             raise SchemaValidationError(f"Invalid YAML/JSON payload: {exc}") from exc
     if not isinstance(loaded, dict):
         raise SchemaValidationError("Top-level YAML must be a mapping")
-    return parse_schema_dict(loaded)
+    return parse_schema_dict(cast(dict[str, object], loaded))
 
 
-def parse_schema_dict(payload: dict[str, Any]) -> GuildSchema:
+def parse_schema_dict(payload: dict[str, object]) -> GuildSchema:
     _ensure_known_keys(payload, _ALLOWED_TOP_LEVEL_KEYS, "")
     _require_keys(payload, {"version", "guild", "roles", "categories", "channels"}, "")
 
@@ -96,8 +98,8 @@ def parse_schema_dict(payload: dict[str, Any]) -> GuildSchema:
     )
 
 
-def schema_to_dict(schema: GuildSchema) -> dict[str, Any]:
-    return asdict(schema)
+def schema_to_dict(schema: GuildSchema) -> dict[str, object]:
+    return cast(dict[str, object], asdict(schema))
 
 
 def schema_to_yaml(schema: GuildSchema) -> str:
@@ -108,119 +110,120 @@ def schema_to_yaml(schema: GuildSchema) -> str:
     return json.dumps(schema_to_dict(schema), indent=2, ensure_ascii=False)
 
 
-def _parse_guild(payload: Any) -> GuildInfo:
-    if not isinstance(payload, dict):
-        raise SchemaValidationError("guild must be an object", "guild")
-    _ensure_known_keys(payload, _ALLOWED_GUILD_KEYS, "guild")
-    _require_keys(payload, {"id", "name"}, "guild")
-    if not isinstance(payload["id"], str) or not payload["id"]:
+def _parse_guild(payload: object) -> GuildInfo:
+    guild_payload = _as_dict(payload, "guild must be an object", "guild")
+    _ensure_known_keys(guild_payload, _ALLOWED_GUILD_KEYS, "guild")
+    _require_keys(guild_payload, {"id", "name"}, "guild")
+    guild_id = guild_payload["id"]
+    guild_name = guild_payload["name"]
+    if not isinstance(guild_id, str) or not guild_id:
         raise SchemaValidationError("id must be non-empty string", "guild.id")
-    if not isinstance(payload["name"], str) or not payload["name"]:
+    if not isinstance(guild_name, str) or not guild_name:
         raise SchemaValidationError("name must be non-empty string", "guild.name")
-    return GuildInfo(id=payload["id"], name=payload["name"])
+    return GuildInfo(id=guild_id, name=guild_name)
 
 
-def _parse_roles(payload: Any) -> list[RoleSchema]:
-    if not isinstance(payload, list):
-        raise SchemaValidationError("roles must be an array", "roles")
+def _parse_roles(payload: object) -> list[RoleSchema]:
+    role_items = _as_list(payload, "roles must be an array", "roles")
     items: list[RoleSchema] = []
-    for idx, item in enumerate(payload):
+    for idx, item in enumerate(role_items):
         path = f"roles[{idx}]"
-        if not isinstance(item, dict):
-            raise SchemaValidationError("role must be object", path)
-        _ensure_known_keys(item, _ALLOWED_ROLE_KEYS, path)
-        _require_keys(item, {"name"}, path)
+        role_payload = _as_dict(item, "role must be object", path)
+        _ensure_known_keys(role_payload, _ALLOWED_ROLE_KEYS, path)
+        _require_keys(role_payload, {"name"}, path)
         role = RoleSchema(
-            id=_opt_str(item.get("id"), f"{path}.id"),
-            name=_required_str(item.get("name"), f"{path}.name"),
-            color=_opt_int(item.get("color", 0), f"{path}.color"),
-            hoist=_opt_bool(item.get("hoist", False), f"{path}.hoist"),
+            id=_opt_str(role_payload.get("id"), f"{path}.id"),
+            name=_required_str(role_payload.get("name"), f"{path}.name"),
+            color=_opt_int(role_payload.get("color", 0), f"{path}.color"),
+            hoist=_opt_bool(role_payload.get("hoist", False), f"{path}.hoist"),
             mentionable=_opt_bool(
-                item.get("mentionable", False), f"{path}.mentionable"
+                role_payload.get("mentionable", False), f"{path}.mentionable"
             ),
             permissions=_list_of_str(
-                item.get("permissions", []), f"{path}.permissions"
+                role_payload.get("permissions", []), f"{path}.permissions"
             ),
-            position=_opt_int(item.get("position", 0), f"{path}.position"),
+            position=_opt_int(role_payload.get("position", 0), f"{path}.position"),
         )
         items.append(role)
     return items
 
 
-def _parse_categories(payload: Any) -> list[CategorySchema]:
-    if not isinstance(payload, list):
-        raise SchemaValidationError("categories must be an array", "categories")
+def _parse_categories(payload: object) -> list[CategorySchema]:
+    category_items = _as_list(payload, "categories must be an array", "categories")
     items: list[CategorySchema] = []
-    for idx, item in enumerate(payload):
+    for idx, item in enumerate(category_items):
         path = f"categories[{idx}]"
-        if not isinstance(item, dict):
-            raise SchemaValidationError("category must be object", path)
-        _ensure_known_keys(item, _ALLOWED_CATEGORY_KEYS, path)
-        _require_keys(item, {"name"}, path)
+        category_payload = _as_dict(item, "category must be object", path)
+        _ensure_known_keys(category_payload, _ALLOWED_CATEGORY_KEYS, path)
+        _require_keys(category_payload, {"name"}, path)
         items.append(
             CategorySchema(
-                id=_opt_str(item.get("id"), f"{path}.id"),
-                name=_required_str(item.get("name"), f"{path}.name"),
-                position=_opt_int(item.get("position", 0), f"{path}.position"),
+                id=_opt_str(category_payload.get("id"), f"{path}.id"),
+                name=_required_str(category_payload.get("name"), f"{path}.name"),
+                position=_opt_int(
+                    category_payload.get("position", 0), f"{path}.position"
+                ),
                 overwrites=_parse_overwrites(
-                    item.get("overwrites", []), f"{path}.overwrites"
+                    category_payload.get("overwrites", []), f"{path}.overwrites"
                 ),
             )
         )
     return items
 
 
-def _parse_channels(payload: Any) -> list[ChannelSchema]:
-    if not isinstance(payload, list):
-        raise SchemaValidationError("channels must be an array", "channels")
+def _parse_channels(payload: object) -> list[ChannelSchema]:
+    channel_items = _as_list(payload, "channels must be an array", "channels")
     items: list[ChannelSchema] = []
-    for idx, item in enumerate(payload):
+    for idx, item in enumerate(channel_items):
         path = f"channels[{idx}]"
-        if not isinstance(item, dict):
-            raise SchemaValidationError("channel must be object", path)
-        _ensure_known_keys(item, _ALLOWED_CHANNEL_KEYS, path)
-        _require_keys(item, {"name", "type"}, path)
-        channel_type = _required_str(item.get("type"), f"{path}.type")
+        channel_payload = _as_dict(item, "channel must be object", path)
+        _ensure_known_keys(channel_payload, _ALLOWED_CHANNEL_KEYS, path)
+        _require_keys(channel_payload, {"name", "type"}, path)
+        channel_type = _required_str(channel_payload.get("type"), f"{path}.type")
         if channel_type not in _SUPPORTED_CHANNEL_TYPES:
             raise SchemaValidationError(
                 f"unsupported channel type '{channel_type}'",
                 f"{path}.type",
             )
+        typed_channel_type = cast(ChannelType, channel_type)
         items.append(
             ChannelSchema(
-                id=_opt_str(item.get("id"), f"{path}.id"),
-                name=_required_str(item.get("name"), f"{path}.name"),
-                type=channel_type,  # type: ignore[arg-type]
-                parent_id=_opt_str(item.get("parent_id"), f"{path}.parent_id"),
-                parent_name=_opt_str(item.get("parent_name"), f"{path}.parent_name"),
-                position=_opt_int(item.get("position", 0), f"{path}.position"),
-                topic=_opt_str(item.get("topic"), f"{path}.topic"),
-                nsfw=_opt_bool(item.get("nsfw", False), f"{path}.nsfw"),
+                id=_opt_str(channel_payload.get("id"), f"{path}.id"),
+                name=_required_str(channel_payload.get("name"), f"{path}.name"),
+                type=typed_channel_type,
+                parent_id=_opt_str(
+                    channel_payload.get("parent_id"), f"{path}.parent_id"
+                ),
+                parent_name=_opt_str(
+                    channel_payload.get("parent_name"), f"{path}.parent_name"
+                ),
+                position=_opt_int(channel_payload.get("position", 0), f"{path}.position"),
+                topic=_opt_str(channel_payload.get("topic"), f"{path}.topic"),
+                nsfw=_opt_bool(channel_payload.get("nsfw", False), f"{path}.nsfw"),
                 slowmode_delay=_opt_int(
-                    item.get("slowmode_delay", 0), f"{path}.slowmode_delay"
+                    channel_payload.get("slowmode_delay", 0),
+                    f"{path}.slowmode_delay",
                 ),
                 overwrites=_parse_overwrites(
-                    item.get("overwrites", []), f"{path}.overwrites"
+                    channel_payload.get("overwrites", []), f"{path}.overwrites"
                 ),
             )
         )
     return items
 
 
-def _parse_overwrites(payload: Any, path: str) -> list[PermissionOverwrite]:
-    if not isinstance(payload, list):
-        raise SchemaValidationError("overwrites must be an array", path)
+def _parse_overwrites(payload: object, path: str) -> list[PermissionOverwrite]:
+    overwrite_items = _as_list(payload, "overwrites must be an array", path)
     items: list[PermissionOverwrite] = []
-    for idx, item in enumerate(payload):
+    for idx, item in enumerate(overwrite_items):
         ow_path = f"{path}[{idx}]"
-        if not isinstance(item, dict):
-            raise SchemaValidationError("overwrite must be object", ow_path)
-        _ensure_known_keys(item, _ALLOWED_OVERWRITE_KEYS, ow_path)
-        _require_keys(item, {"target"}, ow_path)
+        overwrite_payload = _as_dict(item, "overwrite must be object", ow_path)
+        _ensure_known_keys(overwrite_payload, _ALLOWED_OVERWRITE_KEYS, ow_path)
+        _require_keys(overwrite_payload, {"target"}, ow_path)
 
-        target_payload = item["target"]
-        if not isinstance(target_payload, dict):
-            raise SchemaValidationError("target must be object", f"{ow_path}.target")
+        target_payload = _as_dict(
+            overwrite_payload["target"], "target must be object", f"{ow_path}.target"
+        )
         _ensure_known_keys(target_payload, _ALLOWED_TARGET_KEYS, f"{ow_path}.target")
         _require_keys(target_payload, {"type", "id"}, f"{ow_path}.target")
 
@@ -234,11 +237,12 @@ def _parse_overwrites(payload: Any, path: str) -> list[PermissionOverwrite]:
             )
 
         target_id = _required_str(target_payload.get("id"), f"{ow_path}.target.id")
+        typed_target_type = cast(OverwriteTargetType, target_type)
         items.append(
             PermissionOverwrite(
-                target=OverwriteTarget(type=target_type, id=target_id),  # type: ignore[arg-type]
-                allow=_list_of_str(item.get("allow", []), f"{ow_path}.allow"),
-                deny=_list_of_str(item.get("deny", []), f"{ow_path}.deny"),
+                target=OverwriteTarget(type=typed_target_type, id=target_id),
+                allow=_list_of_str(overwrite_payload.get("allow", []), f"{ow_path}.allow"),
+                deny=_list_of_str(overwrite_payload.get("deny", []), f"{ow_path}.deny"),
             )
         )
     return items
@@ -298,7 +302,7 @@ def _validate_overwrite_targets(
                 )
 
 
-def _ensure_known_keys(payload: dict[str, Any], allowed: set[str], path: str) -> None:
+def _ensure_known_keys(payload: dict[str, object], allowed: set[str], path: str) -> None:
     unknown = sorted(set(payload) - allowed)
     if unknown:
         location = path or "<root>"
@@ -308,7 +312,7 @@ def _ensure_known_keys(payload: dict[str, Any], allowed: set[str], path: str) ->
         )
 
 
-def _require_keys(payload: dict[str, Any], required: set[str], path: str) -> None:
+def _require_keys(payload: dict[str, object], required: set[str], path: str) -> None:
     missing = sorted(key for key in required if key not in payload)
     if missing:
         location = path or "<root>"
@@ -318,13 +322,13 @@ def _require_keys(payload: dict[str, Any], required: set[str], path: str) -> Non
         )
 
 
-def _required_str(value: Any, path: str) -> str:
+def _required_str(value: object, path: str) -> str:
     if not isinstance(value, str) or not value:
         raise SchemaValidationError("must be non-empty string", path)
     return value
 
 
-def _opt_str(value: Any, path: str) -> str | None:
+def _opt_str(value: object, path: str) -> str | None:
     if value is None:
         return None
     if not isinstance(value, str):
@@ -332,24 +336,35 @@ def _opt_str(value: Any, path: str) -> str | None:
     return value
 
 
-def _opt_int(value: Any, path: str) -> int:
+def _opt_int(value: object, path: str) -> int:
     if isinstance(value, bool) or not isinstance(value, int):
         raise SchemaValidationError("must be integer", path)
     return value
 
 
-def _opt_bool(value: Any, path: str) -> bool:
+def _opt_bool(value: object, path: str) -> bool:
     if not isinstance(value, bool):
         raise SchemaValidationError("must be boolean", path)
     return value
 
 
-def _list_of_str(value: Any, path: str) -> list[str]:
-    if not isinstance(value, list):
-        raise SchemaValidationError("must be array", path)
+def _list_of_str(value: object, path: str) -> list[str]:
+    values = _as_list(value, "must be array", path)
     result: list[str] = []
-    for idx, item in enumerate(value):
+    for idx, item in enumerate(values):
         if not isinstance(item, str):
             raise SchemaValidationError("array values must be string", f"{path}[{idx}]")
         result.append(item)
     return result
+
+
+def _as_dict(value: object, message: str, path: str) -> dict[str, object]:
+    if not isinstance(value, dict):
+        raise SchemaValidationError(message, path)
+    return cast(dict[str, object], value)
+
+
+def _as_list(value: object, message: str, path: str) -> list[object]:
+    if not isinstance(value, list):
+        raise SchemaValidationError(message, path)
+    return cast(list[object], value)

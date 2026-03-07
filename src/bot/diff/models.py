@@ -8,6 +8,10 @@ DiffAction = Literal["Create", "Update", "Delete", "Move", "Reorder"]
 DiffTargetType = Literal["role", "category", "channel", "overwrite"]
 
 
+def _new_diff_change_list() -> list["DiffChange"]:
+    return []
+
+
 @dataclass(slots=True)
 class DiffChange:
     action: DiffAction
@@ -21,4 +25,4 @@ class DiffChange:
 @dataclass(slots=True)
 class DiffResult:
     summary: dict[str, int]
-    changes: list[DiffChange] = field(default_factory=list)
+    changes: list[DiffChange] = field(default_factory=_new_diff_change_list)

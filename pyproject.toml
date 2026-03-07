@@ -11,6 +11,7 @@ dependencies = [
 
 [dependency-groups]
 dev = [
+  "pyright>=1.1.408",
   "pytest>=8.3.4,<9.0.0",
   "ruff>=0.15.5",
 ]
@@ -19,6 +20,15 @@ dev = [
 pythonpath = ["src"]
 testpaths = ["tests"]
 addopts = "-q"
+
+[tool.pyright]
+include = ["src", "tests"]
+venvPath = "."
+venv = ".venv"
+typeCheckingMode = "strict"
+reportMissingImports = "none"
+reportMissingModuleSource = "none"
+exclude = [".venv", "**/__pycache__", ".pytest_cache", ".ruff_cache", "**/node_modules", "**/.*"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/bot"]

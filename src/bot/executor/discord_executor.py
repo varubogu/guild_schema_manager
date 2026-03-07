@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import Any, TypeAlias
+from collections.abc import Mapping
+from typing import Any, TypeAlias, cast
 
 import discord
 
@@ -380,13 +381,12 @@ class DiscordGuildExecutor:
                 )
 
         me = self._guild.me
-        if me is not None:
-            overwrites[me] = discord.PermissionOverwrite(
-                view_channel=True,
-                read_message_history=True,
-                send_messages=True,
-                manage_channels=True,
-            )
+        overwrites[me] = discord.PermissionOverwrite(
+            view_channel=True,
+            read_message_history=True,
+            send_messages=True,
+            manage_channels=True,
+        )
 
         return overwrites
 
@@ -454,38 +454,39 @@ class DiscordGuildExecutor:
             kwargs["media"] = True
         return kwargs
 
-    def _permissions_from_names(self, names: Any) -> discord.Permissions:
+    def _permissions_from_names(self, names: object) -> discord.Permissions:
         permissions = discord.Permissions.none()
-        for name in names or []:
-            if isinstance(name, str) and hasattr(permissions, name):
+        for name in _string_values(names):
+            if hasattr(permissions, name):
                 setattr(permissions, name, True)
         return permissions
 
     def _permission_overwrite_from_payload(
-        self, payload: dict[str, Any]
+        self, payload: Mapping[str, object]
     ) -> discord.PermissionOverwrite:
         overwrite = discord.PermissionOverwrite()
-        for name in payload.get("allow", []):
-            if isinstance(name, str):
-                setattr(overwrite, name, True)
-        for name in payload.get("deny", []):
-            if isinstance(name, str):
-                setattr(overwrite, name, False)
+        for name in _string_values(payload.get("allow")):
+            setattr(overwrite, name, True)
+        for name in _string_values(payload.get("deny")):
+            setattr(overwrite, name, False)
         return overwrite
 
     def _overwrites_from_payload(
-        self, payload: Any
+        self, payload: object
     ) -> dict[OverwriteKey, discord.PermissionOverwrite]:
         if not isinstance(payload, list):
             return {}
+        entries = cast(list[object], payload)
 
         result: dict[OverwriteKey, discord.PermissionOverwrite] = {}
-        for entry in payload:
-            if not isinstance(entry, dict):
+        for raw_entry in entries:
+            if not isinstance(raw_entry, dict):
                 continue
-            target = entry.get("target")
-            if not isinstance(target, dict):
+            entry = cast(dict[str, object], raw_entry)
+            target_obj = entry.get("target")
+            if not isinstance(target_obj, dict):
                 continue
+            target = cast(dict[str, object], target_obj)
             target_type = str(target.get("type", ""))
             target_id = str(target.get("id", ""))
             resolved = self._resolve_overwrite_target(target_type, target_id)
@@ -493,3 +494,14 @@ class DiscordGuildExecutor:
                 continue
             result[resolved] = self._permission_overwrite_from_payload(entry)
         return result
+
+
+def _string_values(value: object) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    items = cast(list[object], value)
+    result: list[str] = []
+    for item in items:
+        if isinstance(item, str):
+            result.append(item)
+    return result

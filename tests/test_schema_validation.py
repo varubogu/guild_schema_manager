@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+from typing import Any
+
 import pytest
 
 from bot.schema import SchemaValidationError, parse_schema_dict, schema_to_yaml
 
 
-def base_payload() -> dict:
+def base_payload() -> dict[str, Any]:
     return {
         "version": 1,
         "guild": {"id": "1", "name": "Guild"},

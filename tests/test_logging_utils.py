@@ -8,6 +8,10 @@ import pytest
 from bot.logging_utils import log_async_lifecycle
 
 
+def _context_for_test(value: int) -> dict[str, int]:
+    return {"user_id": 42, "value": value}
+
+
 def test_log_async_lifecycle_logs_start_and_end(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
@@ -16,7 +20,7 @@ def test_log_async_lifecycle_logs_start_and_end(
     @log_async_lifecycle(
         logger,
         "command.schema.apply",
-        lambda value: {"user_id": 42, "value": value},
+        _context_for_test,
     )
     async def _work(value: int) -> int:
         return value + 1

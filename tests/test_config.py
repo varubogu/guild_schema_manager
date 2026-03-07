@@ -1,9 +1,13 @@
 from __future__ import annotations
 
+import pytest
+
 from bot.config import Settings
 
 
-def test_settings_reads_optional_schema_repo_env(monkeypatch) -> None:
+def test_settings_reads_optional_schema_repo_env(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.setenv("DISCORD_TOKEN", "token")
     monkeypatch.setenv("APPLICATION_ID", "123")
     monkeypatch.setenv("SCHEMA_REPO_OWNER", "example-org")
@@ -15,7 +19,9 @@ def test_settings_reads_optional_schema_repo_env(monkeypatch) -> None:
     assert settings.schema_repo_name == "guild-schema-manager"
 
 
-def test_settings_normalizes_blank_schema_repo_env(monkeypatch) -> None:
+def test_settings_normalizes_blank_schema_repo_env(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.setenv("DISCORD_TOKEN", "token")
     monkeypatch.setenv("APPLICATION_ID", "123")
     monkeypatch.setenv("SCHEMA_REPO_OWNER", "   ")

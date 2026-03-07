@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from datetime import datetime, timedelta, timezone
+from typing import Any
 
 import pytest
 
@@ -29,7 +30,7 @@ class FailingExecutor:
             raise RuntimeError("delete failed")
 
 
-def base_schema_dict() -> dict:
+def base_schema_dict() -> dict[str, Any]:
     return {
         "version": 1,
         "guild": {"id": "1", "name": "Guild"},

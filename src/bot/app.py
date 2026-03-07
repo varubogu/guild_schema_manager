@@ -27,6 +27,36 @@ def _interaction_context(interaction: discord.Interaction) -> dict[str, object]:
     }
 
 
+def _confirm_context(
+    self: "ConfirmApplyView",
+    interaction: discord.Interaction,
+    button: discord.ui.Button["ConfirmApplyView"],
+) -> dict[str, object]:
+    _ = self
+    _ = button
+    return _interaction_context(interaction)
+
+
+def _command_context(
+    self: "SchemaBot",
+    interaction: discord.Interaction,
+) -> dict[str, object]:
+    _ = self
+    return _interaction_context(interaction)
+
+
+def _file_command_context(
+    self: "SchemaBot",
+    interaction: discord.Interaction,
+    file: discord.Attachment,
+) -> dict[str, object]:
+    _ = self
+    return {
+        **_interaction_context(interaction),
+        "filename": file.filename,
+    }
+
+
 class ConfirmApplyView(discord.ui.View):
     def __init__(
         self,
@@ -43,12 +73,12 @@ class ConfirmApplyView(discord.ui.View):
     @log_async_lifecycle(
         logger,
         "command.schema.apply.confirm",
-        lambda self, interaction, button: _interaction_context(interaction),
+        _confirm_context,
     )
     async def confirm(  # type: ignore[override]
         self,
         interaction: discord.Interaction,
-        button: discord.ui.Button,
+        button: discord.ui.Button["ConfirmApplyView"],
     ) -> None:
         _ = button
         if interaction.guild is None:
@@ -138,15 +168,18 @@ class SchemaBot(discord.Client):
         )
 
         @schema_group.command(name="export", description="Export guild schema to YAML")
-        async def export(interaction: discord.Interaction) -> None:
+        async def export(  # pyright: ignore[reportUnusedFunction]
+            interaction: discord.Interaction,
+        ) -> None:
             await self._handle_export(interaction)
 
         @schema_group.command(
             name="diff", description="Diff uploaded YAML against current guild"
         )
         @app_commands.describe(file="Schema YAML file")
-        async def diff(
-            interaction: discord.Interaction, file: discord.Attachment
+        async def diff(  # pyright: ignore[reportUnusedFunction]
+            interaction: discord.Interaction,
+            file: discord.Attachment,
         ) -> None:
             await self._handle_diff(interaction, file)
 
@@ -154,8 +187,9 @@ class SchemaBot(discord.Client):
             name="apply", description="Preview and apply uploaded YAML"
         )
         @app_commands.describe(file="Schema YAML file")
-        async def apply(
-            interaction: discord.Interaction, file: discord.Attachment
+        async def apply(  # pyright: ignore[reportUnusedFunction]
+            interaction: discord.Interaction,
+            file: discord.Attachment,
         ) -> None:
             await self._handle_apply(interaction, file)
 
@@ -173,7 +207,7 @@ class SchemaBot(discord.Client):
     @log_async_lifecycle(
         logger,
         "command.schema.export",
-        lambda self, interaction: _interaction_context(interaction),
+        _command_context,
     )
     async def _handle_export(self, interaction: discord.Interaction) -> None:
         if interaction.guild is None:
@@ -207,10 +241,7 @@ class SchemaBot(discord.Client):
     @log_async_lifecycle(
         logger,
         "command.schema.diff",
-        lambda self, interaction, file: {
-            **_interaction_context(interaction),
-            "filename": file.filename,
-        },
+        _file_command_context,
     )
     async def _handle_diff(
         self, interaction: discord.Interaction, file: discord.Attachment
@@ -255,10 +286,7 @@ class SchemaBot(discord.Client):
     @log_async_lifecycle(
         logger,
         "command.schema.apply",
-        lambda self, interaction, file: {
-            **_interaction_context(interaction),
-            "filename": file.filename,
-        },
+        _file_command_context,
     )
     async def _handle_apply(
         self, interaction: discord.Interaction, file: discord.Attachment

@@ -1,16 +1,18 @@
 from __future__ import annotations
 
+from typing import Any
+
 import pytest
 
 from bot.diff import DiffValidationError, diff_schemas
 from bot.schema import parse_schema_dict
 
 
-def schema(payload: dict):
+def schema(payload: dict[str, Any]):
     return parse_schema_dict(payload)
 
 
-def base_payload() -> dict:
+def base_payload() -> dict[str, Any]:
     return {
         "version": 1,
         "guild": {"id": "1", "name": "Guild"},
