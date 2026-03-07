@@ -1,0 +1,346 @@
+from __future__ import annotations
+
+from collections import Counter, defaultdict
+from dataclasses import asdict
+from typing import Any, Callable, TypeVar
+
+from bot.schema.models import CategorySchema, ChannelSchema, GuildSchema, RoleSchema
+
+from .errors import DiffValidationError
+from .models import DiffChange, DiffResult
+
+T = TypeVar("T", RoleSchema, CategorySchema, ChannelSchema)
+
+
+def diff_schemas(current: GuildSchema, desired: GuildSchema) -> DiffResult:
+    changes: list[DiffChange] = []
+    changes.extend(
+        _diff_section(
+            current_items=current.roles,
+            desired_items=desired.roles,
+            target_type="role",
+            compare_fn=_compare_role,
+        )
+    )
+    changes.extend(
+        _diff_section(
+            current_items=current.categories,
+            desired_items=desired.categories,
+            target_type="category",
+            compare_fn=_compare_category,
+        )
+    )
+    changes.extend(
+        _diff_section(
+            current_items=current.channels,
+            desired_items=desired.channels,
+            target_type="channel",
+            compare_fn=_compare_channel,
+        )
+    )
+
+    summary_counter = Counter(change.action for change in changes)
+    summary = {
+        "Create": summary_counter.get("Create", 0),
+        "Update": summary_counter.get("Update", 0),
+        "Delete": summary_counter.get("Delete", 0),
+        "Move": summary_counter.get("Move", 0),
+        "Reorder": summary_counter.get("Reorder", 0),
+    }
+    return DiffResult(summary=summary, changes=changes)
+
+
+def _diff_section(
+    current_items: list[T],
+    desired_items: list[T],
+    target_type: str,
+    compare_fn: Callable[[T, T], list[DiffChange]],
+) -> list[DiffChange]:
+    matched_pairs, creates, deletes = _match_items(current_items, desired_items, target_type)
+    changes: list[DiffChange] = []
+
+    for desired_item in creates:
+        changes.append(
+            DiffChange(
+                action="Create",
+                target_type=target_type,  # type: ignore[arg-type]
+                target_id=desired_item.id,
+                before=None,
+                after=_safe_payload(desired_item),
+                risk="low",
+            )
+        )
+
+    for current_item in deletes:
+        changes.append(
+            DiffChange(
+                action="Delete",
+                target_type=target_type,  # type: ignore[arg-type]
+                target_id=current_item.id,
+                before=_safe_payload(current_item),
+                after=None,
+                risk="high",
+            )
+        )
+
+    for current_item, desired_item in matched_pairs:
+        changes.extend(compare_fn(current_item, desired_item))
+
+    return changes
+
+
+def _match_items(
+    current_items: list[T],
+    desired_items: list[T],
+    target_type: str,
+) -> tuple[list[tuple[T, T]], list[T], list[T]]:
+    unmatched_current = set(range(len(current_items)))
+
+    by_id: dict[str, int] = {}
+    by_name: defaultdict[str, list[int]] = defaultdict(list)
+
+    for idx, item in enumerate(current_items):
+        if item.id:
+            by_id[item.id] = idx
+        by_name[item.name].append(idx)
+
+    matched: list[tuple[T, T]] = []
+    creates: list[T] = []
+
+    for desired_item in desired_items:
+        matched_idx: int | None = None
+
+        if desired_item.id:
+            candidate = by_id.get(desired_item.id)
+            if candidate is not None and candidate in unmatched_current:
+                matched_idx = candidate
+        else:
+            candidates = [idx for idx in by_name.get(desired_item.name, []) if idx in unmatched_current]
+            if len(candidates) > 1:
+                raise DiffValidationError(
+                    f"name-only duplicate match in {target_type}: '{desired_item.name}'"
+                )
+            if len(candidates) == 1:
+                matched_idx = candidates[0]
+
+        if matched_idx is None:
+            creates.append(desired_item)
+            continue
+
+        unmatched_current.remove(matched_idx)
+        matched.append((current_items[matched_idx], desired_item))
+
+    deletes = [current_items[idx] for idx in sorted(unmatched_current)]
+    return matched, creates, deletes
+
+
+def _compare_role(current: RoleSchema, desired: RoleSchema) -> list[DiffChange]:
+    changes: list[DiffChange] = []
+    before_payload = _safe_payload(current)
+    after_payload = _safe_payload(desired)
+
+    changed_fields = _changed_fields(
+        before_payload,
+        after_payload,
+        ["name", "color", "hoist", "mentionable", "permissions"],
+    )
+    if changed_fields:
+        changes.append(
+            DiffChange(
+                action="Update",
+                target_type="role",
+                target_id=current.id or desired.id,
+                before=changed_fields[0],
+                after=changed_fields[1],
+                risk="medium",
+            )
+        )
+
+    if current.position != desired.position:
+        changes.append(
+            DiffChange(
+                action="Reorder",
+                target_type="role",
+                target_id=current.id or desired.id,
+                before={"position": current.position},
+                after={"position": desired.position},
+                risk="low",
+            )
+        )
+
+    return changes
+
+
+def _compare_category(current: CategorySchema, desired: CategorySchema) -> list[DiffChange]:
+    changes: list[DiffChange] = []
+    target_id = current.id or desired.id
+
+    if current.name != desired.name:
+        changes.append(
+            DiffChange(
+                action="Update",
+                target_type="category",
+                target_id=target_id,
+                before={"name": current.name},
+                after={"name": desired.name},
+                risk="medium",
+            )
+        )
+
+    if current.position != desired.position:
+        changes.append(
+            DiffChange(
+                action="Reorder",
+                target_type="category",
+                target_id=target_id,
+                before={"position": current.position},
+                after={"position": desired.position},
+                risk="low",
+            )
+        )
+
+    changes.extend(_compare_overwrites("category", target_id, current.overwrites, desired.overwrites))
+    return changes
+
+
+def _compare_channel(current: ChannelSchema, desired: ChannelSchema) -> list[DiffChange]:
+    changes: list[DiffChange] = []
+    target_id = current.id or desired.id
+
+    changed_fields = _changed_fields(
+        _safe_payload(current),
+        _safe_payload(desired),
+        ["name", "type", "topic", "nsfw", "slowmode_delay"],
+    )
+    if changed_fields:
+        changes.append(
+            DiffChange(
+                action="Update",
+                target_type="channel",
+                target_id=target_id,
+                before=changed_fields[0],
+                after=changed_fields[1],
+                risk="medium",
+            )
+        )
+
+    current_parent = current.parent_id or current.parent_name
+    desired_parent = desired.parent_id or desired.parent_name
+    if current_parent != desired_parent:
+        changes.append(
+            DiffChange(
+                action="Move",
+                target_type="channel",
+                target_id=target_id,
+                before={"parent": current_parent},
+                after={"parent": desired_parent},
+                risk="medium",
+            )
+        )
+
+    if current.position != desired.position:
+        changes.append(
+            DiffChange(
+                action="Reorder",
+                target_type="channel",
+                target_id=target_id,
+                before={"position": current.position},
+                after={"position": desired.position},
+                risk="low",
+            )
+        )
+
+    changes.extend(_compare_overwrites("channel", target_id, current.overwrites, desired.overwrites))
+    return changes
+
+
+def _compare_overwrites(
+    owner_type: str,
+    owner_id: str | None,
+    current_overwrites: list[Any],
+    desired_overwrites: list[Any],
+) -> list[DiffChange]:
+    changes: list[DiffChange] = []
+
+    def to_map(items: list[Any]) -> dict[str, dict[str, Any]]:
+        mapped: dict[str, dict[str, Any]] = {}
+        for item in items:
+            payload = _safe_payload(item)
+            key = f"{payload['target']['type']}:{payload['target']['id']}"
+            mapped[key] = {
+                "allow": sorted(payload.get("allow", [])),
+                "deny": sorted(payload.get("deny", [])),
+            }
+        return mapped
+
+    current_map = to_map(current_overwrites)
+    desired_map = to_map(desired_overwrites)
+
+    for key, before in current_map.items():
+        if key not in desired_map:
+            changes.append(
+                DiffChange(
+                    action="Delete",
+                    target_type="overwrite",
+                    target_id=f"{owner_type}:{owner_id}:{key}",
+                    before=before,
+                    after=None,
+                    risk="medium",
+                )
+            )
+
+    for key, after in desired_map.items():
+        if key not in current_map:
+            changes.append(
+                DiffChange(
+                    action="Create",
+                    target_type="overwrite",
+                    target_id=f"{owner_type}:{owner_id}:{key}",
+                    before=None,
+                    after=after,
+                    risk="low",
+                )
+            )
+            continue
+
+        before = current_map[key]
+        if before != after:
+            changes.append(
+                DiffChange(
+                    action="Update",
+                    target_type="overwrite",
+                    target_id=f"{owner_type}:{owner_id}:{key}",
+                    before=before,
+                    after=after,
+                    risk="medium",
+                )
+            )
+
+    return changes
+
+
+def _changed_fields(
+    before: dict[str, Any],
+    after: dict[str, Any],
+    fields: list[str],
+) -> tuple[dict[str, Any], dict[str, Any]] | None:
+    before_diff: dict[str, Any] = {}
+    after_diff: dict[str, Any] = {}
+    for field in fields:
+        if before.get(field) != after.get(field):
+            before_diff[field] = before.get(field)
+            after_diff[field] = after.get(field)
+    if not before_diff:
+        return None
+    return before_diff, after_diff
+
+
+def _safe_payload(value: Any) -> dict[str, Any]:
+    payload = asdict(value)
+    if "permissions" in payload:
+        payload["permissions"] = sorted(payload["permissions"])
+    if "allow" in payload:
+        payload["allow"] = sorted(payload["allow"])
+    if "deny" in payload:
+        payload["deny"] = sorted(payload["deny"])
+    return payload

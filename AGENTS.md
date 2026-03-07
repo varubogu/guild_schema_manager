@@ -37,14 +37,14 @@ Build and maintain a Discord Server Schema Manager Bot that can export, diff, an
 - Production packaging: Docker.
 
 ## Suggested Module Boundaries
-- `bot/commands/`: slash command handlers.
-- `bot/schema/`: YAML model and validation.
-- `bot/snapshot/`: guild state normalization.
-- `bot/diff/`: change detection logic.
-- `bot/planner/`: ordered apply plan generation.
-- `bot/executor/`: Discord mutation execution.
-- `bot/security/`: permission and invoker checks.
-- `bot/rendering/`: markdown and file outputs.
+- `src/bot/commands/`: slash command handlers.
+- `src/bot/schema/`: YAML model and validation.
+- `src/bot/snapshot/`: guild state normalization.
+- `src/bot/diff/`: change detection logic.
+- `src/bot/planner/`: ordered apply plan generation.
+- `src/bot/executor/`: Discord mutation execution.
+- `src/bot/security/`: permission and invoker checks.
+- `src/bot/rendering/`: markdown and file outputs.
 
 ## Safe Change Policy
 - Preserve hard security constraints exactly.

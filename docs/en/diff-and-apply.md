@@ -42,6 +42,10 @@ Example table columns:
 ## Delete Policy
 - Delete actions appear in preview like other changes.
 - Delete execution happens only after explicit confirmation.
+- Confirmed channel deletes are transformed into move-to-`GSM-Dustbox`.
+- For category deletes, child channels are moved to `GSM-Dustbox` and the source category is archived for manual cleanup.
+- `GSM-Dustbox` is auto-created with admin-only visibility when missing.
+- Role delete operations are not hard-deleted by bot and are reported for manual cleanup.
 
 ## Atomicity and Failure Handling
 - Execution model is best effort, not global transaction.

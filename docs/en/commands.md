@@ -65,6 +65,10 @@ Output:
 
 Execution rules:
 - Delete actions are never executed without confirmation.
+- After confirmation, channel delete targets are moved to `GSM-Dustbox` instead of hard-deleted.
+- For category delete targets, child channels are moved to `GSM-Dustbox` and the category is archived for manual cleanup.
+- `GSM-Dustbox` is created with admin-only visibility if it does not exist.
+- Role delete targets are reported for manual deletion (no hard delete by bot).
 - Expired confirmation button returns timeout message and requires rerun.
 - Any apply request without diff changes returns no-op summary.
 

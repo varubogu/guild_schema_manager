@@ -16,15 +16,19 @@
 1. ID present with renamed object is detected as update/rename.
 2. Name-only unique match updates existing object.
 3. Name-only duplicate match returns validation error.
-4. Role delete appears in preview and is not executed pre-confirmation.
-5. Non-administrator command invocation is rejected for all `/schema` commands.
-6. Non-invoker confirmation attempt is rejected.
-7. Pre-apply backup is always produced.
-8. Category/channel overwrite add/update/delete diffs are detected.
-9. Parent category move and reorder diffs are detected.
-10. Unsupported channel type fails validation.
-11. Partial Discord API failures are separated into `failed[]` while successful operations remain in `applied[]`.
-12. Bot restart invalidates pending confirmation plans.
+4. Delete targets appear in preview and are never hard-deleted before confirmation.
+5. Confirmed channel delete targets are moved to `GSM-Dustbox`.
+6. Confirmed category delete targets move child channels to `GSM-Dustbox` and archive the source category.
+7. `GSM-Dustbox` is created with admin-only visibility when missing.
+8. Role delete is reported for manual deletion (not hard-deleted by bot).
+9. Non-administrator command invocation is rejected for all `/schema` commands.
+10. Non-invoker confirmation attempt is rejected.
+11. Pre-apply backup is always produced.
+12. Category/channel overwrite add/update/delete diffs are detected.
+13. Parent category move and reorder diffs are detected.
+14. Unsupported channel type fails validation.
+15. Partial Discord API failures are separated into `failed[]` while successful operations remain in `applied[]`.
+16. Bot restart invalidates pending confirmation plans.
 
 ## Mocking Strategy
 - Mock discord.py HTTP/guild objects at service boundary.
