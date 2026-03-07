@@ -197,7 +197,9 @@ def _parse_channels(payload: object) -> list[ChannelSchema]:
                 parent_name=_opt_str(
                     channel_payload.get("parent_name"), f"{path}.parent_name"
                 ),
-                position=_opt_int(channel_payload.get("position", 0), f"{path}.position"),
+                position=_opt_int(
+                    channel_payload.get("position", 0), f"{path}.position"
+                ),
                 topic=_opt_str(channel_payload.get("topic"), f"{path}.topic"),
                 nsfw=_opt_bool(channel_payload.get("nsfw", False), f"{path}.nsfw"),
                 slowmode_delay=_opt_int(
@@ -241,7 +243,9 @@ def _parse_overwrites(payload: object, path: str) -> list[PermissionOverwrite]:
         items.append(
             PermissionOverwrite(
                 target=OverwriteTarget(type=typed_target_type, id=target_id),
-                allow=_list_of_str(overwrite_payload.get("allow", []), f"{ow_path}.allow"),
+                allow=_list_of_str(
+                    overwrite_payload.get("allow", []), f"{ow_path}.allow"
+                ),
                 deny=_list_of_str(overwrite_payload.get("deny", []), f"{ow_path}.deny"),
             )
         )
@@ -302,7 +306,9 @@ def _validate_overwrite_targets(
                 )
 
 
-def _ensure_known_keys(payload: dict[str, object], allowed: set[str], path: str) -> None:
+def _ensure_known_keys(
+    payload: dict[str, object], allowed: set[str], path: str
+) -> None:
     unknown = sorted(set(payload) - allowed)
     if unknown:
         location = path or "<root>"

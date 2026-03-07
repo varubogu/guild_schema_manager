@@ -304,9 +304,7 @@ class DiscordGuildExecutor:
                 return category
         return None
 
-    def _find_channel(
-        self, operation: ApplyOperation
-    ) -> ManagedChannel | None:
+    def _find_channel(self, operation: ApplyOperation) -> ManagedChannel | None:
         if operation.target_id and str(operation.target_id).isdigit():
             channel = self._guild.get_channel(int(operation.target_id))
             managed = self._as_managed_channel(channel)
@@ -339,9 +337,7 @@ class DiscordGuildExecutor:
 
         return discord.utils.get(self._guild.categories, name=ref_text)
 
-    def _resolve_owner(
-        self, owner_type: str, owner_id: str
-    ) -> PermissionOwner | None:
+    def _resolve_owner(self, owner_type: str, owner_id: str) -> PermissionOwner | None:
         if not owner_id or owner_id == "None" or not owner_id.isdigit():
             return None
         channel = self._guild.get_channel(int(owner_id))
