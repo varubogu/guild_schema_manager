@@ -17,6 +17,59 @@ from bot.snapshot import build_snapshot_from_guild
 
 logger = logging.getLogger(__name__)
 
+LOCALIZATION_KEY = "key"
+
+
+def _localized(message: str, key: str) -> app_commands.locale_str:
+    return app_commands.locale_str(message, key=key)
+
+
+GROUP_DESCRIPTION = _localized(
+    "Guild schema operations",
+    "schema.group.description",
+)
+EXPORT_DESCRIPTION = _localized(
+    "Export guild schema to YAML",
+    "schema.command.export.description",
+)
+DIFF_DESCRIPTION = _localized(
+    "Diff uploaded YAML against current guild",
+    "schema.command.diff.description",
+)
+APPLY_DESCRIPTION = _localized(
+    "Preview and apply uploaded YAML",
+    "schema.command.apply.description",
+)
+SCHEMA_FILE_DESCRIPTION = _localized(
+    "Schema YAML file",
+    "schema.argument.file.description",
+)
+
+JA_TRANSLATIONS: dict[str, str] = {
+    "schema.group.description": "ギルドスキーマ操作",
+    "schema.command.export.description": "ギルド構成をYAML出力",
+    "schema.command.diff.description": "アップロードYAMLと現在のギルド構成を比較",
+    "schema.command.apply.description": "アップロードYAMLをプレビューして適用",
+    "schema.argument.file.description": "スキーマYAMLファイル",
+}
+
+
+class SchemaCommandTranslator(app_commands.Translator):
+    async def translate(
+        self,
+        string: app_commands.locale_str,
+        locale: discord.Locale,
+        context: app_commands.TranslationContextTypes,
+    ) -> str | None:
+        _ = context
+        if locale != discord.Locale.japanese:
+            return None
+
+        key = string.extras.get(LOCALIZATION_KEY)
+        if not isinstance(key, str):
+            return None
+        return JA_TRANSLATIONS.get(key)
+
 
 def _interaction_context(interaction: discord.Interaction) -> dict[str, object]:
     command = getattr(getattr(interaction, "command", None), "qualified_name", None)
@@ -163,20 +216,26 @@ class SchemaBot(discord.Client):
 
     @log_async_lifecycle(logger, "event.setup_hook")
     async def setup_hook(self) -> None:  # type: ignore[override]
+        await self.tree.set_translator(SchemaCommandTranslator())
         schema_group = app_commands.Group(
-            name="schema", description="Guild schema operations"
+            name="schema",
+            description=GROUP_DESCRIPTION,
         )
 
-        @schema_group.command(name="export", description="Export guild schema to YAML")
+        @schema_group.command(
+            name="export",
+            description=EXPORT_DESCRIPTION,
+        )
         async def export(  # pyright: ignore[reportUnusedFunction]
             interaction: discord.Interaction,
         ) -> None:
             await self._handle_export(interaction)
 
         @schema_group.command(
-            name="diff", description="Diff uploaded YAML against current guild"
+            name="diff",
+            description=DIFF_DESCRIPTION,
         )
-        @app_commands.describe(file="Schema YAML file")
+        @app_commands.describe(file=SCHEMA_FILE_DESCRIPTION)
         async def diff(  # pyright: ignore[reportUnusedFunction]
             interaction: discord.Interaction,
             file: discord.Attachment,
@@ -184,9 +243,10 @@ class SchemaBot(discord.Client):
             await self._handle_diff(interaction, file)
 
         @schema_group.command(
-            name="apply", description="Preview and apply uploaded YAML"
+            name="apply",
+            description=APPLY_DESCRIPTION,
         )
-        @app_commands.describe(file="Schema YAML file")
+        @app_commands.describe(file=SCHEMA_FILE_DESCRIPTION)
         async def apply(  # pyright: ignore[reportUnusedFunction]
             interaction: discord.Interaction,
             file: discord.Attachment,
