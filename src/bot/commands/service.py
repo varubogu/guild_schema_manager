@@ -55,13 +55,21 @@ class SchemaCommandService:
         self,
         session_store: InMemorySessionStore,
         executor_factory: Callable[[], OperationExecutor],
+        *,
+        schema_repo_owner: str | None = None,
+        schema_repo_name: str | None = None,
     ) -> None:
         self._session_store = session_store
         self._executor_factory = executor_factory
+        self._schema_repo_owner = schema_repo_owner
+        self._schema_repo_name = schema_repo_name
 
     def export_schema(self, current: GuildSchema, *, invoker_is_admin: bool) -> ExportResponse:
         require_guild_admin(invoker_is_admin)
         yaml_text = schema_to_yaml(current)
+        schema_url = self._schema_url_for_version(current.version)
+        if schema_url is not None:
+            yaml_text = _prepend_schema_hint_comment(yaml_text, schema_url)
         summary = (
             f"Exported roles={len(current.roles)}, categories={len(current.categories)}, "
             f"channels={len(current.channels)}"
@@ -195,6 +203,19 @@ class SchemaCommandService:
             backup_file=FilePayload(filename="guild-schema-backup.yaml", content=backup),
             report=report,
         )
+
+    def _schema_url_for_version(self, version: int) -> str | None:
+        if self._schema_repo_owner is None or self._schema_repo_name is None:
+            return None
+        return (
+            f"https://{self._schema_repo_owner}.github.io/"
+            f"{self._schema_repo_name}/schema/v{version}/schema.json"
+        )
+
+
+def _prepend_schema_hint_comment(yaml_text: str, schema_url: str) -> str:
+    hint = f"# yaml-language-server: $schema={schema_url}"
+    return f"{hint}\n\n{yaml_text}"
 
 
 def parse_uploaded_schema(uploaded: bytes) -> GuildSchema:

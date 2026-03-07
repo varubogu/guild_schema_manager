@@ -23,6 +23,8 @@
 出力:
 - YAML 添付 (`guild-schema.yaml`)。
 - 必要に応じて短い Markdown 要約。
+- `SCHEMA_REPO_OWNER` と `SCHEMA_REPO_NAME` が設定されている場合は、YAML先頭にスキーマヒントコメントを付与:
+  - `# yaml-language-server: $schema=https://<owner>.github.io/<repo>/schema/v<version>/schema.json`
 
 必要な Bot 権限:
 - `View Channels`

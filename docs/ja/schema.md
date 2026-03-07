@@ -84,3 +84,10 @@ channels:
 - 無効な overwrite 参照はエラー。
 - 矛盾した親参照（`parent_id` と不一致 `parent_name`）はエラー。
 - 同一セクション内の重複明示 ID はエラー。
+
+## 公開 JSON Schema
+- バージョン固定パス: `/schema/v1/schema.json`
+- 最新エイリアス: `/schema/latest/schema.json`
+- 推奨 YAML ヘッダー:
+  - `# yaml-language-server: $schema=https://<owner>.github.io/<repo>/schema/v1/schema.json`
+- 重複明示 ID や overwrite 参照先存在チェックなどの相互参照制約は、引き続き Bot の実行時検証でも判定する。

@@ -13,6 +13,11 @@ Minimum runtime variables:
 - `APPLICATION_ID`: Discord application ID.
 - `LOG_LEVEL`: optional (`INFO` default).
 - `CONFIRM_TTL_SECONDS`: optional (`600` default).
+- `SCHEMA_REPO_OWNER`: optional GitHub owner used for `/schema export` schema hint.
+- `SCHEMA_REPO_NAME`: optional GitHub repository name used for `/schema export` schema hint.
+
+If both `SCHEMA_REPO_OWNER` and `SCHEMA_REPO_NAME` are set, exported YAML includes:
+- `# yaml-language-server: $schema=https://<owner>.github.io/<repo>/schema/v<version>/schema.json`
 
 ## Local Development
 Example flow:
@@ -46,6 +51,8 @@ docker run --rm \
   -e DISCORD_TOKEN=*** \
   -e APPLICATION_ID=*** \
   -e LOG_LEVEL=INFO \
+  -e SCHEMA_REPO_OWNER=your-org \
+  -e SCHEMA_REPO_NAME=guild_schema_manager \
   discord-schema-manager:latest
 ```
 

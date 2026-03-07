@@ -84,3 +84,10 @@ Apply planner must respect:
 - Invalid overwrite target references: error.
 - Conflicting parent references (`parent_id` and unmatched `parent_name`): error.
 - Duplicate explicit IDs in the same section: error.
+
+## Published JSON Schema
+- Versioned path: `/schema/v1/schema.json`
+- Latest alias: `/schema/latest/schema.json`
+- Recommended YAML header:
+  - `# yaml-language-server: $schema=https://<owner>.github.io/<repo>/schema/v1/schema.json`
+- Cross-reference constraints (for example duplicate explicit IDs and overwrite target existence) are still validated by bot runtime validation.

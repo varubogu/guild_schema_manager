@@ -13,6 +13,11 @@
 - `APPLICATION_ID`: Discord Application ID
 - `LOG_LEVEL`: 任意（既定 `INFO`）
 - `CONFIRM_TTL_SECONDS`: 任意（既定 `600`）
+- `SCHEMA_REPO_OWNER`: 任意。`/schema export` のスキーマヒントURLに使うGitHub owner
+- `SCHEMA_REPO_NAME`: 任意。`/schema export` のスキーマヒントURLに使うリポジトリ名
+
+`SCHEMA_REPO_OWNER` と `SCHEMA_REPO_NAME` の両方を設定すると、exportしたYAML先頭に次を付与:
+- `# yaml-language-server: $schema=https://<owner>.github.io/<repo>/schema/v<version>/schema.json`
 
 ## ローカル開発
 想定フロー:
@@ -46,6 +51,8 @@ docker run --rm \
   -e DISCORD_TOKEN=*** \
   -e APPLICATION_ID=*** \
   -e LOG_LEVEL=INFO \
+  -e SCHEMA_REPO_OWNER=your-org \
+  -e SCHEMA_REPO_NAME=guild_schema_manager \
   discord-schema-manager:latest
 ```
 

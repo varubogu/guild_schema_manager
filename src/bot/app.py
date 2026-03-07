@@ -116,7 +116,12 @@ class SchemaBot(discord.Client):
 
         self.tree = app_commands.CommandTree(self)
         session_store = InMemorySessionStore(ttl_seconds=settings.confirm_ttl_seconds)
-        self.service = SchemaCommandService(session_store=session_store, executor_factory=NoopExecutor)
+        self.service = SchemaCommandService(
+            session_store=session_store,
+            executor_factory=NoopExecutor,
+            schema_repo_owner=settings.schema_repo_owner,
+            schema_repo_name=settings.schema_repo_name,
+        )
 
     @log_async_lifecycle(logger, "event.setup_hook")
     async def setup_hook(self) -> None:

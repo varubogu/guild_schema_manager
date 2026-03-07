@@ -23,6 +23,8 @@ Input:
 Output:
 - YAML attachment (`guild-schema.yaml`).
 - Optional short Markdown summary.
+- If `SCHEMA_REPO_OWNER` and `SCHEMA_REPO_NAME` are set, prepend YAML schema hint comment:
+  - `# yaml-language-server: $schema=https://<owner>.github.io/<repo>/schema/v<version>/schema.json`
 
 Required bot permissions:
 - `View Channels`

@@ -1,0 +1,233 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Guild Schema Manager v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "guild",
+    "roles",
+    "categories",
+    "channels"
+  ],
+  "properties": {
+    "version": {
+      "const": 1
+    },
+    "guild": {
+      "$ref": "#/$defs/guild"
+    },
+    "roles": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/role"
+      }
+    },
+    "categories": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/category"
+      }
+    },
+    "channels": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/channel"
+      }
+    }
+  },
+  "$defs": {
+    "guild": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "role": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name"
+      ],
+      "properties": {
+        "id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "color": {
+          "type": "integer"
+        },
+        "hoist": {
+          "type": "boolean"
+        },
+        "mentionable": {
+          "type": "boolean"
+        },
+        "permissions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "position": {
+          "type": "integer"
+        }
+      }
+    },
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "id"
+      ],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "role",
+            "member"
+          ]
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "overwrite": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "target"
+      ],
+      "properties": {
+        "target": {
+          "$ref": "#/$defs/target"
+        },
+        "allow": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "deny": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "category": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name"
+      ],
+      "properties": {
+        "id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "position": {
+          "type": "integer"
+        },
+        "overwrites": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/overwrite"
+          }
+        }
+      }
+    },
+    "channel": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "type"
+      ],
+      "properties": {
+        "id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "text",
+            "voice",
+            "news",
+            "stage_voice",
+            "forum",
+            "media"
+          ]
+        },
+        "parent_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "parent_name": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "position": {
+          "type": "integer"
+        },
+        "topic": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "nsfw": {
+          "type": "boolean"
+        },
+        "slowmode_delay": {
+          "type": "integer"
+        },
+        "overwrites": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/overwrite"
+          }
+        }
+      }
+    }
+  }
+}

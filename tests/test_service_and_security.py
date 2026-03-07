@@ -71,6 +71,24 @@ def test_admin_required_for_all_commands() -> None:
         )
 
 
+def test_export_includes_schema_hint_comment_when_repo_is_configured() -> None:
+    current = parse_schema_dict(base_schema_dict())
+    srv = SchemaCommandService(
+        session_store=InMemorySessionStore(ttl_seconds=600),
+        executor_factory=NoopExecutor,
+        schema_repo_owner="example-org",
+        schema_repo_name="guild-schema-manager",
+    )
+
+    response = srv.export_schema(current, invoker_is_admin=True)
+    content = response.file.content.decode("utf-8")
+
+    assert content.startswith(
+        "# yaml-language-server: $schema="
+        "https://example-org.github.io/guild-schema-manager/schema/v1/schema.json"
+    )
+
+
 def test_invoker_only_confirmation_guard() -> None:
     current = parse_schema_dict(base_schema_dict())
     desired = base_schema_dict()
