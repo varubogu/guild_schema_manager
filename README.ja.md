@@ -1,6 +1,6 @@
 # Guild Schema Manager
 
-Bot implementation for exporting, diffing, and applying Discord server configuration as a YAML schema.
+Discord サーバー構成を YAML スキーマとして export / diff / apply する Bot 実装です。
 
 ## Quick Start
 
