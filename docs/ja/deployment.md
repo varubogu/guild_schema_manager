@@ -4,6 +4,7 @@
 - Python
 - `discord.py`
 - `uv`
+- `ruff`
 - `pytest`
 - Docker（本番実行）
 
@@ -23,12 +24,15 @@
 想定フロー:
 1. `uv` をインストール。
 2. 依存を同期。
-3. 環境変数を設定して Bot を起動。
-4. `pytest` を実行。
+3. `ruff` でフォーマットとチェックを実行。
+4. 環境変数を設定して Bot を起動。
+5. `pytest` を実行。
 
 例:
 ```bash
 uv sync
+uv run ruff format
+uv run ruff check
 uv run python -m bot
 uv run pytest
 ```

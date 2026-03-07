@@ -14,3 +14,10 @@ uv run python -m bot
 ```bash
 uv run pytest
 ```
+
+## Format and Lint
+
+```bash
+uv run ruff format
+uv run ruff check
+```

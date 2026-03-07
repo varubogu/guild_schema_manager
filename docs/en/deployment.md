@@ -4,6 +4,7 @@
 - Python
 - `discord.py`
 - `uv`
+- `ruff`
 - `pytest`
 - Docker (production runtime)
 
@@ -23,12 +24,15 @@ If both `SCHEMA_REPO_OWNER` and `SCHEMA_REPO_NAME` are set, exported YAML includ
 Example flow:
 1. Install `uv`.
 2. Create environment and install dependencies.
-3. Run bot with environment variables.
-4. Run tests with `pytest`.
+3. Run formatting and lint checks with `ruff`.
+4. Run bot with environment variables.
+5. Run tests with `pytest`.
 
 Example commands:
 ```bash
 uv sync
+uv run ruff format
+uv run ruff check
 uv run python -m bot
 uv run pytest
 ```
