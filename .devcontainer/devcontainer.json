@@ -20,8 +20,9 @@
 	"customizations": {
 		"vscode": {
 			"extensions": [
-				"tamasfe.even-better-toml",
-				"openai.chatgpt"
+				"charliermarsh.ruff",
+				"openai.chatgpt",
+				"tamasfe.even-better-toml"
 			]
 		}
 	}
