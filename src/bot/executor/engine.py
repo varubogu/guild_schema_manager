@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import logging
 from typing import Protocol
 
 from bot.planner.models import ApplyOperation, ApplyPlan, ApplyReport
 from .errors import SkipOperationError
+
+logger = logging.getLogger(__name__)
 
 
 class OperationExecutor(Protocol):
@@ -25,6 +28,14 @@ def execute_plan(
         try:
             executor.execute(operation)
         except SkipOperationError as exc:
+            logger.warning(
+                "apply.operation.skipped operation_id=%s action=%s target_type=%s target_id=%s reason=%s",
+                operation.operation_id,
+                operation.action,
+                operation.target_type,
+                operation.target_id,
+                exc,
+            )
             report.skipped.append(
                 {
                     "operation_id": operation.operation_id,
@@ -35,6 +46,13 @@ def execute_plan(
             )
             continue
         except Exception as exc:  # noqa: BLE001
+            logger.exception(
+                "apply.operation.failed operation_id=%s action=%s target_type=%s target_id=%s",
+                operation.operation_id,
+                operation.action,
+                operation.target_type,
+                operation.target_id,
+            )
             report.failed.append(
                 {
                     "operation_id": operation.operation_id,
@@ -47,6 +65,12 @@ def execute_plan(
 
         report.applied.append(operation)
 
+    logger.info(
+        "apply.plan.completed mode=sync applied=%d failed=%d skipped=%d",
+        len(report.applied),
+        len(report.failed),
+        len(report.skipped),
+    )
     return report
 
 
@@ -61,6 +85,14 @@ async def execute_plan_async(
         try:
             await executor.execute(operation)
         except SkipOperationError as exc:
+            logger.warning(
+                "apply.operation.skipped operation_id=%s action=%s target_type=%s target_id=%s reason=%s",
+                operation.operation_id,
+                operation.action,
+                operation.target_type,
+                operation.target_id,
+                exc,
+            )
             report.skipped.append(
                 {
                     "operation_id": operation.operation_id,
@@ -71,6 +103,13 @@ async def execute_plan_async(
             )
             continue
         except Exception as exc:  # noqa: BLE001
+            logger.exception(
+                "apply.operation.failed operation_id=%s action=%s target_type=%s target_id=%s",
+                operation.operation_id,
+                operation.action,
+                operation.target_type,
+                operation.target_id,
+            )
             report.failed.append(
                 {
                     "operation_id": operation.operation_id,
@@ -83,4 +122,10 @@ async def execute_plan_async(
 
         report.applied.append(operation)
 
+    logger.info(
+        "apply.plan.completed mode=async applied=%d failed=%d skipped=%d",
+        len(report.applied),
+        len(report.failed),
+        len(report.skipped),
+    )
     return report

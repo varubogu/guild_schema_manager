@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import asyncio
+import logging
+
+import pytest
 
 from bot.executor import SkipOperationError, execute_plan, execute_plan_async
 from bot.planner.models import ApplyOperation, ApplyPlan
@@ -57,7 +60,29 @@ def test_execute_plan_collects_partial_failures() -> None:
     assert report.failed[0]["operation_id"] == "2"
 
 
-def test_execute_plan_collects_skipped() -> None:
+def test_execute_plan_logs_failed_operation(caplog: pytest.LogCaptureFixture) -> None:
+    plan = ApplyPlan(
+        operations=[
+            ApplyOperation(
+                operation_id="1",
+                action="Delete",
+                target_type="channel",
+                target_id="bad",
+                before={"name": "x"},
+                after=None,
+                risk="high",
+            ),
+        ]
+    )
+
+    caplog.set_level(logging.INFO, logger="bot.executor.engine")
+    execute_plan(plan, b"backup", MixedExecutor())
+
+    assert "apply.operation.failed operation_id=1" in caplog.text
+    assert "apply.plan.completed mode=sync applied=0 failed=1 skipped=0" in caplog.text
+
+
+def test_execute_plan_collects_skipped(caplog: pytest.LogCaptureFixture) -> None:
     plan = ApplyPlan(
         operations=[
             ApplyOperation(
@@ -72,15 +97,20 @@ def test_execute_plan_collects_skipped() -> None:
         ]
     )
 
+    caplog.set_level(logging.INFO, logger="bot.executor.engine")
     report = execute_plan(plan, b"backup", SkippingExecutor())
 
     assert len(report.applied) == 0
     assert len(report.failed) == 0
     assert len(report.skipped) == 1
     assert report.skipped[0]["operation_id"] == "1"
+    assert "apply.operation.skipped operation_id=1" in caplog.text
+    assert "apply.plan.completed mode=sync applied=0 failed=0 skipped=1" in caplog.text
 
 
-def test_execute_plan_async_collects_applied_failed_and_skipped() -> None:
+def test_execute_plan_async_collects_applied_failed_and_skipped(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
     plan = ApplyPlan(
         operations=[
             ApplyOperation(
@@ -113,6 +143,7 @@ def test_execute_plan_async_collects_applied_failed_and_skipped() -> None:
         ]
     )
 
+    caplog.set_level(logging.INFO, logger="bot.executor.engine")
     report = asyncio.run(execute_plan_async(plan, b"backup", AsyncMixedExecutor()))
 
     assert len(report.applied) == 1
@@ -120,3 +151,6 @@ def test_execute_plan_async_collects_applied_failed_and_skipped() -> None:
     assert len(report.failed) == 1
     assert report.skipped[0]["operation_id"] == "2"
     assert report.failed[0]["operation_id"] == "3"
+    assert "apply.operation.skipped operation_id=2" in caplog.text
+    assert "apply.operation.failed operation_id=3" in caplog.text
+    assert "apply.plan.completed mode=async applied=1 failed=1 skipped=1" in caplog.text
