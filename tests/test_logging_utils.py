@@ -8,7 +8,9 @@ import pytest
 from bot.logging_utils import log_async_lifecycle
 
 
-def test_log_async_lifecycle_logs_start_and_end(caplog: pytest.LogCaptureFixture) -> None:
+def test_log_async_lifecycle_logs_start_and_end(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
     logger = logging.getLogger("tests.logging.lifecycle")
 
     @log_async_lifecycle(

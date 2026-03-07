@@ -40,7 +40,9 @@ class DiscordGuildExecutor:
                 colour=discord.Colour(int(payload.get("color", 0))),
                 hoist=bool(payload.get("hoist", False)),
                 mentionable=bool(payload.get("mentionable", False)),
-                permissions=self._permissions_from_names(payload.get("permissions", [])),
+                permissions=self._permissions_from_names(
+                    payload.get("permissions", [])
+                ),
             )
             if "position" in payload:
                 await role.edit(position=int(payload["position"]))
@@ -51,7 +53,9 @@ class DiscordGuildExecutor:
             raise SkipOperationError("role not found")
 
         if operation.action == "Delete":
-            raise SkipOperationError("role delete is disabled; delete the role manually")
+            raise SkipOperationError(
+                "role delete is disabled; delete the role manually"
+            )
 
         if operation.action == "Reorder":
             position = int((operation.after or {}).get("position", role.position))
@@ -70,7 +74,9 @@ class DiscordGuildExecutor:
             if "mentionable" in payload:
                 edit_kwargs["mentionable"] = bool(payload["mentionable"])
             if "permissions" in payload:
-                edit_kwargs["permissions"] = self._permissions_from_names(payload["permissions"])
+                edit_kwargs["permissions"] = self._permissions_from_names(
+                    payload["permissions"]
+                )
             if edit_kwargs:
                 await role.edit(**edit_kwargs)
             return
@@ -141,7 +147,9 @@ class DiscordGuildExecutor:
             return
 
         if operation.action == "Reorder":
-            position = int((operation.after or {}).get("position", getattr(channel, "position", 0)))
+            position = int(
+                (operation.after or {}).get("position", getattr(channel, "position", 0))
+            )
             await channel.edit(position=position)
             return
 
@@ -166,7 +174,9 @@ class DiscordGuildExecutor:
         raise SkipOperationError(f"unsupported channel action: {operation.action}")
 
     async def _execute_overwrite(self, operation: ApplyOperation) -> None:
-        owner_type, owner_id, target_type, target_id = self._parse_overwrite_target(operation.target_id)
+        owner_type, owner_id, target_type, target_id = self._parse_overwrite_target(
+            operation.target_id
+        )
         owner = self._resolve_owner(owner_type, owner_id)
         if owner is None:
             raise SkipOperationError("overwrite owner not found")
@@ -186,7 +196,9 @@ class DiscordGuildExecutor:
     async def _create_channel(self, payload: dict[str, Any]) -> None:
         channel_type = str(payload.get("type", "text"))
         name = str(payload.get("name", "new-channel"))
-        parent = self._resolve_category_ref(payload.get("parent_id") or payload.get("parent_name"))
+        parent = self._resolve_category_ref(
+            payload.get("parent_id") or payload.get("parent_name")
+        )
         common_kwargs: dict[str, Any] = {
             "position": int(payload.get("position", 0)),
             "overwrites": self._overwrites_from_payload(payload.get("overwrites", [])),
@@ -268,7 +280,9 @@ class DiscordGuildExecutor:
                 return role
         return None
 
-    def _find_category(self, operation: ApplyOperation) -> discord.CategoryChannel | None:
+    def _find_category(
+        self, operation: ApplyOperation
+    ) -> discord.CategoryChannel | None:
         if operation.target_id and str(operation.target_id).isdigit():
             channel = self._guild.get_channel(int(operation.target_id))
             if isinstance(channel, discord.CategoryChannel):
@@ -286,7 +300,9 @@ class DiscordGuildExecutor:
                 return category
         return None
 
-    def _find_channel(self, operation: ApplyOperation) -> discord.abc.GuildChannel | None:
+    def _find_channel(
+        self, operation: ApplyOperation
+    ) -> discord.abc.GuildChannel | None:
         if operation.target_id and str(operation.target_id).isdigit():
             channel = self._guild.get_channel(int(operation.target_id))
             if channel is not None and not isinstance(channel, discord.CategoryChannel):
@@ -317,13 +333,19 @@ class DiscordGuildExecutor:
 
         return discord.utils.get(self._guild.categories, name=ref_text)
 
-    def _resolve_owner(self, owner_type: str, owner_id: str) -> discord.abc.GuildChannel | None:
+    def _resolve_owner(
+        self, owner_type: str, owner_id: str
+    ) -> discord.abc.GuildChannel | None:
         if not owner_id or owner_id == "None" or not owner_id.isdigit():
             return None
         channel = self._guild.get_channel(int(owner_id))
         if owner_type == "category" and isinstance(channel, discord.CategoryChannel):
             return channel
-        if owner_type == "channel" and channel is not None and not isinstance(channel, discord.CategoryChannel):
+        if (
+            owner_type == "channel"
+            and channel is not None
+            and not isinstance(channel, discord.CategoryChannel)
+        ):
             return channel
         return None
 
@@ -338,7 +360,9 @@ class DiscordGuildExecutor:
             reason="schema apply dustbox setup",
         )
 
-    def _admin_only_overwrites(self) -> dict[discord.abc.Snowflake, discord.PermissionOverwrite]:
+    def _admin_only_overwrites(
+        self,
+    ) -> dict[discord.abc.Snowflake, discord.PermissionOverwrite]:
         overwrites: dict[discord.abc.Snowflake, discord.PermissionOverwrite] = {}
 
         everyone = self._guild.default_role
@@ -368,7 +392,9 @@ class DiscordGuildExecutor:
             return value
         return value[:max_length]
 
-    def _resolve_overwrite_target(self, target_type: str, target_id: str) -> discord.abc.Snowflake | None:
+    def _resolve_overwrite_target(
+        self, target_type: str, target_id: str
+    ) -> discord.abc.Snowflake | None:
         if not target_id or not target_id.isdigit():
             return None
         if target_type == "role":
@@ -377,7 +403,9 @@ class DiscordGuildExecutor:
             return self._guild.get_member(int(target_id))
         return None
 
-    def _parse_overwrite_target(self, target_id: str | None) -> tuple[str, str, str, str]:
+    def _parse_overwrite_target(
+        self, target_id: str | None
+    ) -> tuple[str, str, str, str]:
         if not target_id:
             raise SkipOperationError("overwrite target id is empty")
         parts = target_id.split(":")
@@ -393,7 +421,9 @@ class DiscordGuildExecutor:
                 setattr(permissions, name, True)
         return permissions
 
-    def _permission_overwrite_from_payload(self, payload: dict[str, Any]) -> discord.PermissionOverwrite:
+    def _permission_overwrite_from_payload(
+        self, payload: dict[str, Any]
+    ) -> discord.PermissionOverwrite:
         overwrite = discord.PermissionOverwrite()
         for name in payload.get("allow", []):
             if isinstance(name, str):
@@ -403,7 +433,9 @@ class DiscordGuildExecutor:
                 setattr(overwrite, name, False)
         return overwrite
 
-    def _overwrites_from_payload(self, payload: Any) -> dict[discord.abc.Snowflake, discord.PermissionOverwrite]:
+    def _overwrites_from_payload(
+        self, payload: Any
+    ) -> dict[discord.abc.Snowflake, discord.PermissionOverwrite]:
         if not isinstance(payload, list):
             return {}
 

@@ -75,7 +75,9 @@ class InMemorySessionStore:
 
         return session
 
-    def consume(self, token: str, invoker_id: int, now: datetime | None = None) -> PendingApplySession:
+    def consume(
+        self, token: str, invoker_id: int, now: datetime | None = None
+    ) -> PendingApplySession:
         session = self.get(token, now=now)
         if session.invoker_id != invoker_id:
             raise SessionForbiddenError("only the original invoker can confirm")

@@ -56,7 +56,9 @@ def _diff_section(
     target_type: str,
     compare_fn: Callable[[T, T], list[DiffChange]],
 ) -> list[DiffChange]:
-    matched_pairs, creates, deletes = _match_items(current_items, desired_items, target_type)
+    matched_pairs, creates, deletes = _match_items(
+        current_items, desired_items, target_type
+    )
     changes: list[DiffChange] = []
 
     for desired_item in creates:
@@ -115,7 +117,11 @@ def _match_items(
             if candidate is not None and candidate in unmatched_current:
                 matched_idx = candidate
         else:
-            candidates = [idx for idx in by_name.get(desired_item.name, []) if idx in unmatched_current]
+            candidates = [
+                idx
+                for idx in by_name.get(desired_item.name, [])
+                if idx in unmatched_current
+            ]
             if len(candidates) > 1:
                 raise DiffValidationError(
                     f"name-only duplicate match in {target_type}: '{desired_item.name}'"
@@ -171,7 +177,9 @@ def _compare_role(current: RoleSchema, desired: RoleSchema) -> list[DiffChange]:
     return changes
 
 
-def _compare_category(current: CategorySchema, desired: CategorySchema) -> list[DiffChange]:
+def _compare_category(
+    current: CategorySchema, desired: CategorySchema
+) -> list[DiffChange]:
     changes: list[DiffChange] = []
     target_id = current.id or desired.id
 
@@ -199,11 +207,17 @@ def _compare_category(current: CategorySchema, desired: CategorySchema) -> list[
             )
         )
 
-    changes.extend(_compare_overwrites("category", target_id, current.overwrites, desired.overwrites))
+    changes.extend(
+        _compare_overwrites(
+            "category", target_id, current.overwrites, desired.overwrites
+        )
+    )
     return changes
 
 
-def _compare_channel(current: ChannelSchema, desired: ChannelSchema) -> list[DiffChange]:
+def _compare_channel(
+    current: ChannelSchema, desired: ChannelSchema
+) -> list[DiffChange]:
     changes: list[DiffChange] = []
     target_id = current.id or desired.id
 
@@ -250,7 +264,11 @@ def _compare_channel(current: ChannelSchema, desired: ChannelSchema) -> list[Dif
             )
         )
 
-    changes.extend(_compare_overwrites("channel", target_id, current.overwrites, desired.overwrites))
+    changes.extend(
+        _compare_overwrites(
+            "channel", target_id, current.overwrites, desired.overwrites
+        )
+    )
     return changes
 
 

@@ -4,7 +4,12 @@ from dataclasses import dataclass
 from typing import Callable
 
 from bot.diff import DiffValidationError, diff_schemas
-from bot.executor import AsyncOperationExecutor, OperationExecutor, execute_plan, execute_plan_async
+from bot.executor import (
+    AsyncOperationExecutor,
+    OperationExecutor,
+    execute_plan,
+    execute_plan_async,
+)
 from bot.planner import ApplyReport, build_apply_plan
 from bot.rendering import render_apply_report, render_diff_markdown
 from bot.schema.errors import SchemaValidationError
@@ -64,7 +69,9 @@ class SchemaCommandService:
         self._schema_repo_owner = schema_repo_owner
         self._schema_repo_name = schema_repo_name
 
-    def export_schema(self, current: GuildSchema, *, invoker_is_admin: bool) -> ExportResponse:
+    def export_schema(
+        self, current: GuildSchema, *, invoker_is_admin: bool
+    ) -> ExportResponse:
         require_guild_admin(invoker_is_admin)
         yaml_text = schema_to_yaml(current)
         schema_url = self._schema_url_for_version(current.version)
@@ -76,7 +83,9 @@ class SchemaCommandService:
         )
         return ExportResponse(
             markdown=summary,
-            file=FilePayload(filename="guild-schema.yaml", content=yaml_text.encode("utf-8")),
+            file=FilePayload(
+                filename="guild-schema.yaml", content=yaml_text.encode("utf-8")
+            ),
         )
 
     def diff_schema(
@@ -148,17 +157,23 @@ class SchemaCommandService:
                 report=None,
             )
         except SessionError as exc:
-            return ApplyExecutionResponse(markdown=str(exc), backup_file=None, report=None)
+            return ApplyExecutionResponse(
+                markdown=str(exc), backup_file=None, report=None
+            )
 
         ensure_invoker_only(invoker_id, pending.invoker_id)
 
         backup = schema_to_yaml(current).encode("utf-8")
         executor = self._executor_factory()
-        report = execute_plan(plan=pending.apply_plan, backup_file=backup, executor=executor)
+        report = execute_plan(
+            plan=pending.apply_plan, backup_file=backup, executor=executor
+        )
         markdown = render_apply_report(report)
         return ApplyExecutionResponse(
             markdown=markdown,
-            backup_file=FilePayload(filename="guild-schema-backup.yaml", content=backup),
+            backup_file=FilePayload(
+                filename="guild-schema-backup.yaml", content=backup
+            ),
             report=report,
         )
 
@@ -191,16 +206,22 @@ class SchemaCommandService:
                 report=None,
             )
         except SessionError as exc:
-            return ApplyExecutionResponse(markdown=str(exc), backup_file=None, report=None)
+            return ApplyExecutionResponse(
+                markdown=str(exc), backup_file=None, report=None
+            )
 
         ensure_invoker_only(invoker_id, pending.invoker_id)
 
         backup = schema_to_yaml(current).encode("utf-8")
-        report = await execute_plan_async(plan=pending.apply_plan, backup_file=backup, executor=executor)
+        report = await execute_plan_async(
+            plan=pending.apply_plan, backup_file=backup, executor=executor
+        )
         markdown = render_apply_report(report)
         return ApplyExecutionResponse(
             markdown=markdown,
-            backup_file=FilePayload(filename="guild-schema-backup.yaml", content=backup),
+            backup_file=FilePayload(
+                filename="guild-schema-backup.yaml", content=backup
+            ),
             report=report,
         )
 

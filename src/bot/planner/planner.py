@@ -30,5 +30,8 @@ def build_apply_plan(diff_result: DiffResult) -> ApplyPlan:
             change.target_id or "",
         ),
     )
-    operations = [operation_from_change(change, idx) for idx, change in enumerate(ordered_changes, start=1)]
+    operations = [
+        operation_from_change(change, idx)
+        for idx, change in enumerate(ordered_changes, start=1)
+    ]
     return ApplyPlan(operations=operations, created_at=datetime.now(timezone.utc))

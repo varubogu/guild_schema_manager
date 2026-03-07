@@ -7,7 +7,11 @@ import pytest
 from bot.diff.models import DiffResult
 from bot.planner.models import ApplyPlan
 from bot.schema import parse_schema_dict
-from bot.session_store import InMemorySessionStore, SessionExpiredError, SessionNotFoundError
+from bot.session_store import (
+    InMemorySessionStore,
+    SessionExpiredError,
+    SessionNotFoundError,
+)
 
 
 def sample_schema():
@@ -27,7 +31,9 @@ def test_session_expires() -> None:
     session = store.create(
         invoker_id=1,
         desired_schema=sample_schema(),
-        diff_result=DiffResult(summary={"Create": 0, "Update": 0, "Delete": 0, "Move": 0, "Reorder": 0}),
+        diff_result=DiffResult(
+            summary={"Create": 0, "Update": 0, "Delete": 0, "Move": 0, "Reorder": 0}
+        ),
         apply_plan=ApplyPlan(operations=[]),
         now=datetime.now(timezone.utc),
     )
@@ -41,7 +47,9 @@ def test_restart_invalidates_pending_sessions() -> None:
     session = original_store.create(
         invoker_id=1,
         desired_schema=sample_schema(),
-        diff_result=DiffResult(summary={"Create": 0, "Update": 0, "Delete": 0, "Move": 0, "Reorder": 0}),
+        diff_result=DiffResult(
+            summary={"Create": 0, "Update": 0, "Delete": 0, "Move": 0, "Reorder": 0}
+        ),
         apply_plan=ApplyPlan(operations=[]),
     )
 

@@ -25,7 +25,9 @@ def build_snapshot_from_mapping(payload: dict[str, Any]) -> GuildSchema:
 
 def build_snapshot_from_guild(guild: Any) -> GuildSchema:
     roles = [_role_to_schema(role) for role in getattr(guild, "roles", [])]
-    categories = [_category_to_schema(category) for category in getattr(guild, "categories", [])]
+    categories = [
+        _category_to_schema(category) for category in getattr(guild, "categories", [])
+    ]
 
     channels: list[ChannelSchema] = []
     for channel in getattr(guild, "channels", []):
@@ -106,7 +108,9 @@ def _extract_overwrites(raw: Any) -> list[PermissionOverwrite]:
             allow_obj, deny_obj = overwrite.pair()
             allow = [name for name, enabled in allow_obj if enabled]
             deny = [name for name, enabled in deny_obj if enabled]
-        target_type = "role" if target.__class__.__name__.lower().endswith("role") else "member"
+        target_type = (
+            "role" if target.__class__.__name__.lower().endswith("role") else "member"
+        )
         result.append(
             PermissionOverwrite(
                 target=OverwriteTarget(type=target_type, id=str(getattr(target, "id"))),

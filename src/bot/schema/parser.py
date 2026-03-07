@@ -23,7 +23,15 @@ from .models import (
 
 _ALLOWED_TOP_LEVEL_KEYS = {"version", "guild", "roles", "categories", "channels"}
 _ALLOWED_GUILD_KEYS = {"id", "name"}
-_ALLOWED_ROLE_KEYS = {"id", "name", "color", "hoist", "mentionable", "permissions", "position"}
+_ALLOWED_ROLE_KEYS = {
+    "id",
+    "name",
+    "color",
+    "hoist",
+    "mentionable",
+    "permissions",
+    "position",
+}
 _ALLOWED_CATEGORY_KEYS = {"id", "name", "position", "overwrites"}
 _ALLOWED_CHANNEL_KEYS = {
     "id",
@@ -94,7 +102,9 @@ def schema_to_dict(schema: GuildSchema) -> dict[str, Any]:
 
 def schema_to_yaml(schema: GuildSchema) -> str:
     if yaml is not None:
-        return yaml.safe_dump(schema_to_dict(schema), sort_keys=False, allow_unicode=True)
+        return yaml.safe_dump(
+            schema_to_dict(schema), sort_keys=False, allow_unicode=True
+        )
     return json.dumps(schema_to_dict(schema), indent=2, ensure_ascii=False)
 
 
@@ -125,8 +135,12 @@ def _parse_roles(payload: Any) -> list[RoleSchema]:
             name=_required_str(item.get("name"), f"{path}.name"),
             color=_opt_int(item.get("color", 0), f"{path}.color"),
             hoist=_opt_bool(item.get("hoist", False), f"{path}.hoist"),
-            mentionable=_opt_bool(item.get("mentionable", False), f"{path}.mentionable"),
-            permissions=_list_of_str(item.get("permissions", []), f"{path}.permissions"),
+            mentionable=_opt_bool(
+                item.get("mentionable", False), f"{path}.mentionable"
+            ),
+            permissions=_list_of_str(
+                item.get("permissions", []), f"{path}.permissions"
+            ),
             position=_opt_int(item.get("position", 0), f"{path}.position"),
         )
         items.append(role)
@@ -148,7 +162,9 @@ def _parse_categories(payload: Any) -> list[CategorySchema]:
                 id=_opt_str(item.get("id"), f"{path}.id"),
                 name=_required_str(item.get("name"), f"{path}.name"),
                 position=_opt_int(item.get("position", 0), f"{path}.position"),
-                overwrites=_parse_overwrites(item.get("overwrites", []), f"{path}.overwrites"),
+                overwrites=_parse_overwrites(
+                    item.get("overwrites", []), f"{path}.overwrites"
+                ),
             )
         )
     return items
@@ -180,8 +196,12 @@ def _parse_channels(payload: Any) -> list[ChannelSchema]:
                 position=_opt_int(item.get("position", 0), f"{path}.position"),
                 topic=_opt_str(item.get("topic"), f"{path}.topic"),
                 nsfw=_opt_bool(item.get("nsfw", False), f"{path}.nsfw"),
-                slowmode_delay=_opt_int(item.get("slowmode_delay", 0), f"{path}.slowmode_delay"),
-                overwrites=_parse_overwrites(item.get("overwrites", []), f"{path}.overwrites"),
+                slowmode_delay=_opt_int(
+                    item.get("slowmode_delay", 0), f"{path}.slowmode_delay"
+                ),
+                overwrites=_parse_overwrites(
+                    item.get("overwrites", []), f"{path}.overwrites"
+                ),
             )
         )
     return items
@@ -204,7 +224,9 @@ def _parse_overwrites(payload: Any, path: str) -> list[PermissionOverwrite]:
         _ensure_known_keys(target_payload, _ALLOWED_TARGET_KEYS, f"{ow_path}.target")
         _require_keys(target_payload, {"type", "id"}, f"{ow_path}.target")
 
-        target_type = _required_str(target_payload.get("type"), f"{ow_path}.target.type")
+        target_type = _required_str(
+            target_payload.get("type"), f"{ow_path}.target.type"
+        )
         if target_type not in _ALLOWED_TARGET_TYPES:
             raise SchemaValidationError(
                 f"unsupported overwrite target type '{target_type}'",
@@ -232,11 +254,17 @@ def _validate_duplicate_ids(items: list[Any], section: str) -> None:
         )
 
 
-def _validate_parent_references(channels: list[ChannelSchema], categories: list[CategorySchema]) -> None:
+def _validate_parent_references(
+    channels: list[ChannelSchema], categories: list[CategorySchema]
+) -> None:
     category_ids = {category.id for category in categories if category.id}
     category_names = {category.name for category in categories}
     for idx, channel in enumerate(channels):
-        if channel.parent_id and channel.parent_name and channel.parent_name not in category_names:
+        if (
+            channel.parent_id
+            and channel.parent_name
+            and channel.parent_name not in category_names
+        ):
             raise SchemaValidationError(
                 "parent_id and parent_name conflict (parent_name not found)",
                 f"channels[{idx}]",
@@ -259,7 +287,11 @@ def _validate_overwrite_targets(
         for ow_idx, overwrite in enumerate(container.overwrites):
             if overwrite.target.type == "role" and overwrite.target.id not in role_ids:
                 prefix = "categories" if container_idx < len(categories) else "channels"
-                idx = container_idx if prefix == "categories" else container_idx - len(categories)
+                idx = (
+                    container_idx
+                    if prefix == "categories"
+                    else container_idx - len(categories)
+                )
                 raise SchemaValidationError(
                     f"overwrite role target id '{overwrite.target.id}' not found in roles",
                     f"{prefix}[{idx}].overwrites[{ow_idx}].target.id",

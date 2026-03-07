@@ -51,7 +51,9 @@ def test_id_first_rename_detected_as_update() -> None:
 
     result = diff_schemas(current, schema(desired_payload))
 
-    updates = [c for c in result.changes if c.action == "Update" and c.target_type == "role"]
+    updates = [
+        c for c in result.changes if c.action == "Update" and c.target_type == "role"
+    ]
     assert len(updates) == 1
     assert updates[0].before == {"name": "Moderators"}
     assert updates[0].after == {"name": "New Moderators"}
@@ -63,12 +65,16 @@ def test_name_only_unique_match_updates_existing() -> None:
     current = schema(payload)
 
     desired_payload = base_payload()
-    desired_payload["roles"] = [{"name": "Moderators", "permissions": ["manage_channels", "mute_members"]}]
+    desired_payload["roles"] = [
+        {"name": "Moderators", "permissions": ["manage_channels", "mute_members"]}
+    ]
     desired = schema(desired_payload)
 
     result = diff_schemas(current, desired)
 
-    updates = [c for c in result.changes if c.action == "Update" and c.target_type == "role"]
+    updates = [
+        c for c in result.changes if c.action == "Update" and c.target_type == "role"
+    ]
     assert len(updates) == 1
     assert updates[0].before["permissions"] == ["manage_channels"]
     assert updates[0].after["permissions"] == ["manage_channels", "mute_members"]
@@ -131,5 +137,9 @@ def test_parent_move_and_reorder_detected() -> None:
 
     result = diff_schemas(current, schema(desired_payload))
 
-    assert any(c.action == "Move" and c.target_type == "channel" for c in result.changes)
-    assert any(c.action == "Reorder" and c.target_type == "channel" for c in result.changes)
+    assert any(
+        c.action == "Move" and c.target_type == "channel" for c in result.changes
+    )
+    assert any(
+        c.action == "Reorder" and c.target_type == "channel" for c in result.changes
+    )

@@ -104,7 +104,9 @@ def test_invoker_only_confirmation_guard() -> None:
     )
     assert preview.confirmation_token is not None
 
-    response = srv.confirm_apply(preview.confirmation_token, invoker_id=11, current=current)
+    response = srv.confirm_apply(
+        preview.confirmation_token, invoker_id=11, current=current
+    )
     assert "Only the original invoker" in response.markdown
 
 
@@ -122,7 +124,9 @@ def test_backup_is_always_produced_before_apply_execution() -> None:
         invoker_id=10,
     )
 
-    response = srv.confirm_apply(preview.confirmation_token or "", invoker_id=10, current=current)
+    response = srv.confirm_apply(
+        preview.confirmation_token or "", invoker_id=10, current=current
+    )
     assert response.backup_file is not None
     assert response.backup_file.filename == "guild-schema-backup.yaml"
     assert response.report is not None
@@ -166,7 +170,9 @@ def test_partial_failure_reporting_separates_failed_and_applied() -> None:
         invoker_id=10,
     )
 
-    response = srv.confirm_apply(preview.confirmation_token or "", invoker_id=10, current=current)
+    response = srv.confirm_apply(
+        preview.confirmation_token or "", invoker_id=10, current=current
+    )
     assert response.report is not None
     assert len(response.report.failed) == 1
     assert len(response.report.applied) >= 1
@@ -195,4 +201,7 @@ def test_confirmation_expiry_returns_timeout_message() -> None:
         store.get(token, now=now + timedelta(seconds=2))
 
     response = srv.confirm_apply(token, invoker_id=10, current=current)
-    assert "expired" in response.markdown.lower() or "not found" in response.markdown.lower()
+    assert (
+        "expired" in response.markdown.lower()
+        or "not found" in response.markdown.lower()
+    )

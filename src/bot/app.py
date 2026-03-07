@@ -52,8 +52,12 @@ class ConfirmApplyView(discord.ui.View):
     ) -> None:
         _ = button
         if interaction.guild is None:
-            logger.warning("command.schema.apply.confirm rejected reason=guild_required")
-            await interaction.response.send_message("This command must be used in a guild.", ephemeral=True)
+            logger.warning(
+                "command.schema.apply.confirm rejected reason=guild_required"
+            )
+            await interaction.response.send_message(
+                "This command must be used in a guild.", ephemeral=True
+            )
             return
 
         try:
@@ -87,9 +91,13 @@ class ConfirmApplyView(discord.ui.View):
             )
 
         if interaction.response.is_done():
-            await interaction.followup.send(response.markdown, files=files, ephemeral=True)
+            await interaction.followup.send(
+                response.markdown, files=files, ephemeral=True
+            )
         else:
-            await interaction.response.send_message(response.markdown, files=files, ephemeral=True)
+            await interaction.response.send_message(
+                response.markdown, files=files, ephemeral=True
+            )
 
         if response.report is not None and response.report.failed:
             logger.error(
@@ -125,20 +133,30 @@ class SchemaBot(discord.Client):
 
     @log_async_lifecycle(logger, "event.setup_hook")
     async def setup_hook(self) -> None:
-        schema_group = app_commands.Group(name="schema", description="Guild schema operations")
+        schema_group = app_commands.Group(
+            name="schema", description="Guild schema operations"
+        )
 
         @schema_group.command(name="export", description="Export guild schema to YAML")
         async def export(interaction: discord.Interaction) -> None:
             await self._handle_export(interaction)
 
-        @schema_group.command(name="diff", description="Diff uploaded YAML against current guild")
+        @schema_group.command(
+            name="diff", description="Diff uploaded YAML against current guild"
+        )
         @app_commands.describe(file="Schema YAML file")
-        async def diff(interaction: discord.Interaction, file: discord.Attachment) -> None:
+        async def diff(
+            interaction: discord.Interaction, file: discord.Attachment
+        ) -> None:
             await self._handle_diff(interaction, file)
 
-        @schema_group.command(name="apply", description="Preview and apply uploaded YAML")
+        @schema_group.command(
+            name="apply", description="Preview and apply uploaded YAML"
+        )
         @app_commands.describe(file="Schema YAML file")
-        async def apply(interaction: discord.Interaction, file: discord.Attachment) -> None:
+        async def apply(
+            interaction: discord.Interaction, file: discord.Attachment
+        ) -> None:
             await self._handle_apply(interaction, file)
 
         self.tree.add_command(schema_group)
@@ -146,7 +164,11 @@ class SchemaBot(discord.Client):
 
     @log_async_lifecycle(logger, "event.on_ready")
     async def on_ready(self) -> None:
-        logger.info("bot.ready guild_count=%d user_id=%s", len(self.guilds), getattr(self.user, "id", None))
+        logger.info(
+            "bot.ready guild_count=%d user_id=%s",
+            len(self.guilds),
+            getattr(self.user, "id", None),
+        )
 
     @log_async_lifecycle(
         logger,
@@ -156,7 +178,9 @@ class SchemaBot(discord.Client):
     async def _handle_export(self, interaction: discord.Interaction) -> None:
         if interaction.guild is None:
             logger.warning("command.schema.export rejected reason=guild_required")
-            await interaction.response.send_message("This command must be used in a guild.", ephemeral=True)
+            await interaction.response.send_message(
+                "This command must be used in a guild.", ephemeral=True
+            )
             return
 
         is_admin = member_is_guild_admin(interaction.user)
@@ -173,8 +197,12 @@ class SchemaBot(discord.Client):
             await interaction.response.send_message(str(exc), ephemeral=True)
             return
 
-        file = discord.File(fp=io.BytesIO(response.file.content), filename=response.file.filename)
-        await interaction.response.send_message(response.markdown, file=file, ephemeral=True)
+        file = discord.File(
+            fp=io.BytesIO(response.file.content), filename=response.file.filename
+        )
+        await interaction.response.send_message(
+            response.markdown, file=file, ephemeral=True
+        )
 
     @log_async_lifecycle(
         logger,
@@ -184,17 +212,23 @@ class SchemaBot(discord.Client):
             "filename": file.filename,
         },
     )
-    async def _handle_diff(self, interaction: discord.Interaction, file: discord.Attachment) -> None:
+    async def _handle_diff(
+        self, interaction: discord.Interaction, file: discord.Attachment
+    ) -> None:
         if interaction.guild is None:
             logger.warning("command.schema.diff rejected reason=guild_required")
-            await interaction.response.send_message("This command must be used in a guild.", ephemeral=True)
+            await interaction.response.send_message(
+                "This command must be used in a guild.", ephemeral=True
+            )
             return
 
         is_admin = member_is_guild_admin(interaction.user)
         try:
             uploaded = await file.read()
             snapshot = build_snapshot_from_guild(interaction.guild)
-            response = self.service.diff_schema(snapshot, uploaded, invoker_is_admin=is_admin)
+            response = self.service.diff_schema(
+                snapshot, uploaded, invoker_is_admin=is_admin
+            )
         except AuthorizationError as exc:
             logger.warning(
                 "command.schema.diff authorization_failed guild_id=%s user_id=%s error=%s",
@@ -211,7 +245,9 @@ class SchemaBot(discord.Client):
                 interaction.user.id,
                 file.filename,
             )
-            await interaction.response.send_message(f"Validation error: {exc}", ephemeral=True)
+            await interaction.response.send_message(
+                f"Validation error: {exc}", ephemeral=True
+            )
             return
 
         await interaction.response.send_message(response.markdown, ephemeral=True)
@@ -224,10 +260,14 @@ class SchemaBot(discord.Client):
             "filename": file.filename,
         },
     )
-    async def _handle_apply(self, interaction: discord.Interaction, file: discord.Attachment) -> None:
+    async def _handle_apply(
+        self, interaction: discord.Interaction, file: discord.Attachment
+    ) -> None:
         if interaction.guild is None:
             logger.warning("command.schema.apply rejected reason=guild_required")
-            await interaction.response.send_message("This command must be used in a guild.", ephemeral=True)
+            await interaction.response.send_message(
+                "This command must be used in a guild.", ephemeral=True
+            )
             return
 
         is_admin = member_is_guild_admin(interaction.user)
@@ -256,7 +296,9 @@ class SchemaBot(discord.Client):
                 interaction.user.id,
                 file.filename,
             )
-            await interaction.response.send_message(f"Validation error: {exc}", ephemeral=True)
+            await interaction.response.send_message(
+                f"Validation error: {exc}", ephemeral=True
+            )
             return
 
         if response.confirmation_token is None:
@@ -268,7 +310,9 @@ class SchemaBot(discord.Client):
             response.confirmation_token,
             timeout=float(self.settings.confirm_ttl_seconds),
         )
-        await interaction.response.send_message(response.markdown, view=view, ephemeral=True)
+        await interaction.response.send_message(
+            response.markdown, view=view, ephemeral=True
+        )
 
 
 def create_client(settings: Settings) -> SchemaBot:

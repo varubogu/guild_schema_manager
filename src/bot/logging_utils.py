@@ -19,7 +19,9 @@ def log_async_lifecycle(
     def decorator(func: Callable[P, Awaitable[R]]) -> Callable[P, Awaitable[R]]:
         @functools.wraps(func)
         async def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
-            context = context_builder(*args, **kwargs) if context_builder is not None else {}
+            context = (
+                context_builder(*args, **kwargs) if context_builder is not None else {}
+            )
             context_text = _format_context(context)
             suffix = f" {context_text}" if context_text else ""
 
@@ -29,7 +31,9 @@ def log_async_lifecycle(
                 result = await func(*args, **kwargs)
             except Exception:
                 elapsed_ms = int((time.perf_counter() - started) * 1000)
-                logger.exception("%s.end status=error elapsed_ms=%d%s", action, elapsed_ms, suffix)
+                logger.exception(
+                    "%s.end status=error elapsed_ms=%d%s", action, elapsed_ms, suffix
+                )
                 raise
 
             elapsed_ms = int((time.perf_counter() - started) * 1000)
