@@ -3,7 +3,7 @@ from __future__ import annotations
 import functools
 import logging
 import time
-from collections.abc import Awaitable, Callable
+from collections.abc import Callable, Coroutine
 from typing import Any, ParamSpec, TypeVar
 
 
@@ -15,8 +15,10 @@ def log_async_lifecycle(
     logger: logging.Logger,
     action: str,
     context_builder: Callable[P, dict[str, Any]] | None = None,
-) -> Callable[[Callable[P, Awaitable[R]]], Callable[P, Awaitable[R]]]:
-    def decorator(func: Callable[P, Awaitable[R]]) -> Callable[P, Awaitable[R]]:
+) -> Callable[[Callable[P, Coroutine[Any, Any, R]]], Callable[P, Coroutine[Any, Any, R]]]:
+    def decorator(
+        func: Callable[P, Coroutine[Any, Any, R]],
+    ) -> Callable[P, Coroutine[Any, Any, R]]:
         @functools.wraps(func)
         async def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
             context = (

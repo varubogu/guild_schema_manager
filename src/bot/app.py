@@ -132,7 +132,7 @@ class SchemaBot(discord.Client):
         )
 
     @log_async_lifecycle(logger, "event.setup_hook")
-    async def setup_hook(self) -> None:
+    async def setup_hook(self) -> None:  # type: ignore[override]
         schema_group = app_commands.Group(
             name="schema", description="Guild schema operations"
         )

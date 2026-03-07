@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, TypeAlias
 
 import discord
 
@@ -10,6 +10,15 @@ from .errors import SkipOperationError
 
 
 DUSTBOX_CATEGORY_NAME = "GSM-Dustbox"
+OverwriteTarget: TypeAlias = discord.Role | discord.Member
+OverwriteKey: TypeAlias = OverwriteTarget | discord.Object
+ManagedChannel: TypeAlias = (
+    discord.TextChannel
+    | discord.VoiceChannel
+    | discord.StageChannel
+    | discord.ForumChannel
+)
+PermissionOwner: TypeAlias = ManagedChannel | discord.CategoryChannel
 
 
 class DiscordGuildExecutor:
@@ -100,7 +109,10 @@ class DiscordGuildExecutor:
         if operation.action == "Delete":
             dustbox = await self._ensure_dustbox_category()
             for child in list(category.channels):
-                await child.edit(category=dustbox, reason="schema apply dustbox move")
+                movable = self._as_managed_channel(child)
+                if movable is None:
+                    continue
+                await movable.edit(category=dustbox, reason="schema apply dustbox move")
             archived_name = self._truncate_name(f"GSM-DeleteMe-{category.name}")
             await category.edit(
                 name=archived_name,
@@ -204,33 +216,21 @@ class DiscordGuildExecutor:
             "overwrites": self._overwrites_from_payload(payload.get("overwrites", [])),
             "category": parent,
         }
+        text_kwargs = self._text_channel_kwargs(payload)
 
         if channel_type == "text":
             await self._guild.create_text_channel(
                 name=name,
-                topic=payload.get("topic"),
-                nsfw=bool(payload.get("nsfw", False)),
-                slowmode_delay=int(payload.get("slowmode_delay", 0)),
+                **text_kwargs,
                 **common_kwargs,
             )
             return
 
         if channel_type == "news":
-            create_news = getattr(self._guild, "create_news_channel", None)
-            if callable(create_news):
-                await create_news(
-                    name=name,
-                    topic=payload.get("topic"),
-                    nsfw=bool(payload.get("nsfw", False)),
-                    slowmode_delay=int(payload.get("slowmode_delay", 0)),
-                    **common_kwargs,
-                )
-                return
             await self._guild.create_text_channel(
                 name=name,
-                topic=payload.get("topic"),
-                nsfw=bool(payload.get("nsfw", False)),
-                slowmode_delay=int(payload.get("slowmode_delay", 0)),
+                news=True,
+                **text_kwargs,
                 **common_kwargs,
             )
             return
@@ -240,25 +240,28 @@ class DiscordGuildExecutor:
             return
 
         if channel_type == "stage_voice":
-            create_stage = getattr(self._guild, "create_stage_channel", None)
-            if callable(create_stage):
-                await create_stage(name=name, **common_kwargs)
-                return
-            raise SkipOperationError("stage channel create is not supported")
+            await self._guild.create_stage_channel(
+                name=name,
+                nsfw=bool(payload.get("nsfw", False)),
+                **common_kwargs,
+            )
+            return
 
         if channel_type == "forum":
-            create_forum = getattr(self._guild, "create_forum", None)
-            if callable(create_forum):
-                await create_forum(name=name, **common_kwargs)
-                return
-            raise SkipOperationError("forum channel create is not supported")
+            await self._guild.create_forum(
+                name=name,
+                **self._forum_channel_kwargs(payload),
+                **common_kwargs,
+            )
+            return
 
         if channel_type == "media":
-            create_media = getattr(self._guild, "create_media_channel", None)
-            if callable(create_media):
-                await create_media(name=name, **common_kwargs)
-                return
-            raise SkipOperationError("media channel create is not supported")
+            await self._guild.create_forum(
+                name=name,
+                **self._forum_channel_kwargs(payload, media=True),
+                **common_kwargs,
+            )
+            return
 
         raise SkipOperationError(f"unsupported channel type: {channel_type}")
 
@@ -302,11 +305,12 @@ class DiscordGuildExecutor:
 
     def _find_channel(
         self, operation: ApplyOperation
-    ) -> discord.abc.GuildChannel | None:
+    ) -> ManagedChannel | None:
         if operation.target_id and str(operation.target_id).isdigit():
             channel = self._guild.get_channel(int(operation.target_id))
-            if channel is not None and not isinstance(channel, discord.CategoryChannel):
-                return channel
+            managed = self._as_managed_channel(channel)
+            if managed is not None:
+                return managed
 
         names = [
             (operation.after or {}).get("name"),
@@ -316,8 +320,9 @@ class DiscordGuildExecutor:
             if not name:
                 continue
             channel = discord.utils.get(self._guild.channels, name=name)
-            if channel is not None and not isinstance(channel, discord.CategoryChannel):
-                return channel
+            managed = self._as_managed_channel(channel)
+            if managed is not None:
+                return managed
         return None
 
     def _resolve_category_ref(self, ref: Any) -> discord.CategoryChannel | None:
@@ -335,18 +340,16 @@ class DiscordGuildExecutor:
 
     def _resolve_owner(
         self, owner_type: str, owner_id: str
-    ) -> discord.abc.GuildChannel | None:
+    ) -> PermissionOwner | None:
         if not owner_id or owner_id == "None" or not owner_id.isdigit():
             return None
         channel = self._guild.get_channel(int(owner_id))
         if owner_type == "category" and isinstance(channel, discord.CategoryChannel):
             return channel
-        if (
-            owner_type == "channel"
-            and channel is not None
-            and not isinstance(channel, discord.CategoryChannel)
-        ):
-            return channel
+        if owner_type == "channel":
+            managed = self._as_managed_channel(channel)
+            if managed is not None:
+                return managed
         return None
 
     async def _ensure_dustbox_category(self) -> discord.CategoryChannel:
@@ -362,8 +365,8 @@ class DiscordGuildExecutor:
 
     def _admin_only_overwrites(
         self,
-    ) -> dict[discord.abc.Snowflake, discord.PermissionOverwrite]:
-        overwrites: dict[discord.abc.Snowflake, discord.PermissionOverwrite] = {}
+    ) -> dict[OverwriteKey, discord.PermissionOverwrite]:
+        overwrites: dict[OverwriteKey, discord.PermissionOverwrite] = {}
 
         everyone = self._guild.default_role
         overwrites[everyone] = discord.PermissionOverwrite(view_channel=False)
@@ -394,7 +397,7 @@ class DiscordGuildExecutor:
 
     def _resolve_overwrite_target(
         self, target_type: str, target_id: str
-    ) -> discord.abc.Snowflake | None:
+    ) -> OverwriteTarget | None:
         if not target_id or not target_id.isdigit():
             return None
         if target_type == "role":
@@ -413,6 +416,43 @@ class DiscordGuildExecutor:
             raise SkipOperationError(f"invalid overwrite target id: {target_id}")
         owner_type, owner_id, target_type, resolved_target_id = parts
         return owner_type, owner_id, target_type, resolved_target_id
+
+    def _as_managed_channel(self, channel: object) -> ManagedChannel | None:
+        if isinstance(
+            channel,
+            (
+                discord.TextChannel,
+                discord.VoiceChannel,
+                discord.StageChannel,
+                discord.ForumChannel,
+            ),
+        ):
+            return channel
+        return None
+
+    def _text_channel_kwargs(self, payload: dict[str, Any]) -> dict[str, Any]:
+        kwargs: dict[str, Any] = {
+            "nsfw": bool(payload.get("nsfw", False)),
+            "slowmode_delay": int(payload.get("slowmode_delay", 0)),
+        }
+        topic = payload.get("topic")
+        if isinstance(topic, str):
+            kwargs["topic"] = topic
+        return kwargs
+
+    def _forum_channel_kwargs(
+        self, payload: dict[str, Any], *, media: bool = False
+    ) -> dict[str, Any]:
+        kwargs: dict[str, Any] = {
+            "nsfw": bool(payload.get("nsfw", False)),
+            "slowmode_delay": int(payload.get("slowmode_delay", 0)),
+        }
+        topic = payload.get("topic")
+        if isinstance(topic, str):
+            kwargs["topic"] = topic
+        if media:
+            kwargs["media"] = True
+        return kwargs
 
     def _permissions_from_names(self, names: Any) -> discord.Permissions:
         permissions = discord.Permissions.none()
@@ -435,11 +475,11 @@ class DiscordGuildExecutor:
 
     def _overwrites_from_payload(
         self, payload: Any
-    ) -> dict[discord.abc.Snowflake, discord.PermissionOverwrite]:
+    ) -> dict[OverwriteKey, discord.PermissionOverwrite]:
         if not isinstance(payload, list):
             return {}
 
-        result: dict[discord.abc.Snowflake, discord.PermissionOverwrite] = {}
+        result: dict[OverwriteKey, discord.PermissionOverwrite] = {}
         for entry in payload:
             if not isinstance(entry, dict):
                 continue

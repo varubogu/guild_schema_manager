@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from datetime import datetime, timedelta, timezone
 
 import pytest
 
 from bot.commands import SchemaCommandService
+from bot.executor import OperationExecutor
 from bot.executor.noop import NoopExecutor
 from bot.planner.models import ApplyOperation
 from bot.schema import parse_schema_dict, schema_to_yaml
@@ -44,7 +46,9 @@ def base_schema_dict() -> dict:
     }
 
 
-def service(executor_factory=NoopExecutor):
+def service(
+    executor_factory: Callable[[], OperationExecutor] = NoopExecutor,
+) -> SchemaCommandService:
     return SchemaCommandService(
         session_store=InMemorySessionStore(ttl_seconds=600),
         executor_factory=executor_factory,

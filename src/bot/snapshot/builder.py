@@ -5,6 +5,7 @@ from typing import Any
 
 from bot.schema.models import (
     CategorySchema,
+    ChannelType,
     ChannelSchema,
     GuildInfo,
     GuildSchema,
@@ -121,8 +122,8 @@ def _extract_overwrites(raw: Any) -> list[PermissionOverwrite]:
     return result
 
 
-def _normalize_channel_type(type_name: str) -> str:
-    mapping = {
+def _normalize_channel_type(type_name: str) -> ChannelType:
+    mapping: dict[str, ChannelType] = {
         "text": "text",
         "voice": "voice",
         "news": "news",

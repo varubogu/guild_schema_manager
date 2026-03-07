@@ -76,8 +76,12 @@ def test_name_only_unique_match_updates_existing() -> None:
         c for c in result.changes if c.action == "Update" and c.target_type == "role"
     ]
     assert len(updates) == 1
-    assert updates[0].before["permissions"] == ["manage_channels"]
-    assert updates[0].after["permissions"] == ["manage_channels", "mute_members"]
+    before = updates[0].before
+    after = updates[0].after
+    assert before is not None
+    assert after is not None
+    assert before["permissions"] == ["manage_channels"]
+    assert after["permissions"] == ["manage_channels", "mute_members"]
 
 
 def test_name_only_duplicate_match_raises_error() -> None:
