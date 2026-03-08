@@ -59,6 +59,8 @@ Behavior:
 - Invalid schema returns validation error with field path.
 - `file_trust_mode=false`: uploaded file is merged as partial patch; omitted sections/entities/fields are kept from current guild state.
 - `file_trust_mode=true`: uploaded file is parsed as full schema source-of-truth; omitted resources become delete diffs.
+- If uploaded `guild.id` is present and differs from the current guild, the bot asks whether to overwrite it to the current guild ID before continuing.
+- If that confirmation is cancelled or times out, the command is aborted.
 
 ## `/schema apply file:<attachment>`
 Purpose: preview and apply schema changes with confirmation.
@@ -69,12 +71,14 @@ Input:
   - `file_trust_mode` (default: `false`)
 
 Workflow:
-1. Parse and validate file.
-2. Compute diff and show preview.
-3. Show confirmation button with TTL (default 10 minutes).
-4. Only the command invoker can confirm.
-5. On confirm, create backup and execute apply plan.
-6. Return final result report.
+1. Parse uploaded file and check `guild.id` mismatch.
+2. If mismatch is detected, ask whether to overwrite `guild.id` to the current guild.
+3. Parse and validate file.
+4. Compute diff and show preview.
+5. Show confirmation button with TTL (default 10 minutes).
+6. Only the command invoker can confirm.
+7. On confirm, create backup and execute apply plan.
+8. Return final result report.
 
 Output:
 - Pre-confirmation: Markdown preview + confirmation UI.
@@ -84,6 +88,7 @@ Execution rules:
 - Delete actions are never executed without confirmation.
 - `file_trust_mode=false`: omitting roles/categories/channels from upload does not generate delete actions.
 - `file_trust_mode=true`: omission in uploaded full schema generates delete actions.
+- If uploaded `guild.id` differs and the override confirmation is cancelled or timed out, apply does not proceed.
 - After confirmation, channel delete targets are moved to `GSM-Dustbox` instead of hard-deleted.
 - For category delete targets, child channels are moved to `GSM-Dustbox` and the category is archived for manual cleanup.
 - `GSM-Dustbox` is created with admin-only visibility if it does not exist.

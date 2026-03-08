@@ -6,7 +6,12 @@ import logging
 import discord
 from discord import app_commands
 
-from bot.commands import ExportFieldSelection, SchemaCommandService
+from bot.commands import (
+    ExportFieldSelection,
+    SchemaCommandService,
+    extract_uploaded_guild_id,
+    overwrite_uploaded_guild_id,
+)
 from bot.config import Settings
 from bot.executor.discord_executor import DiscordGuildExecutor
 from bot.executor.noop import NoopExecutor
@@ -145,6 +150,60 @@ def _file_command_context(
         "filename": file.filename,
         "file_trust_mode": file_trust_mode,
     }
+
+
+class GuildIdOverrideView(discord.ui.View):
+    def __init__(self, *, invoker_id: int, timeout: float) -> None:
+        super().__init__(timeout=timeout)
+        self._invoker_id = invoker_id
+        self.decision: bool | None = None
+
+    async def _reject_non_invoker(self, interaction: discord.Interaction) -> bool:
+        if interaction.user.id == self._invoker_id:
+            return False
+        await interaction.response.send_message(
+            "Only the original invoker can respond to this confirmation.",
+            ephemeral=True,
+        )
+        return True
+
+    @discord.ui.button(
+        label="Overwrite guild.id and continue",
+        style=discord.ButtonStyle.success,
+    )
+    async def approve(  # type: ignore[override]
+        self,
+        interaction: discord.Interaction,
+        button: discord.ui.Button["GuildIdOverrideView"],
+    ) -> None:
+        _ = button
+        if await self._reject_non_invoker(interaction):
+            return
+        self.decision = True
+        await interaction.response.edit_message(
+            content="Guild ID override approved. Continuing command execution.",
+            view=None,
+        )
+        self.stop()
+
+    @discord.ui.button(
+        label="Cancel",
+        style=discord.ButtonStyle.secondary,
+    )
+    async def cancel(  # type: ignore[override]
+        self,
+        interaction: discord.Interaction,
+        button: discord.ui.Button["GuildIdOverrideView"],
+    ) -> None:
+        _ = button
+        if await self._reject_non_invoker(interaction):
+            return
+        self.decision = False
+        await interaction.response.edit_message(
+            content="Guild ID override canceled. Command aborted.",
+            view=None,
+        )
+        self.stop()
 
 
 class ConfirmApplyView(discord.ui.View):
@@ -317,6 +376,54 @@ class SchemaBot(discord.Client):
             getattr(self.user, "id", None),
         )
 
+    async def _maybe_confirm_guild_id_override(
+        self,
+        interaction: discord.Interaction,
+        *,
+        uploaded: bytes,
+        command_name: str,
+    ) -> bytes | None:
+        if interaction.guild is None:
+            return None
+        uploaded_guild_id = extract_uploaded_guild_id(uploaded)
+        if uploaded_guild_id is None:
+            return uploaded
+
+        current_guild_id = str(interaction.guild.id)
+        if uploaded_guild_id == current_guild_id:
+            return uploaded
+
+        logger.warning(
+            "%s guild_id_mismatch uploaded=%s current=%s user_id=%s",
+            command_name,
+            uploaded_guild_id,
+            current_guild_id,
+            interaction.user.id,
+        )
+        view = GuildIdOverrideView(
+            invoker_id=interaction.user.id,
+            timeout=float(self.settings.confirm_ttl_seconds),
+        )
+        await interaction.followup.send(
+            "Uploaded schema uses a different guild.id.\n"
+            f"- file guild.id: `{uploaded_guild_id}`\n"
+            f"- this guild.id: `{current_guild_id}`\n\n"
+            "Overwrite guild.id to this server and continue?",
+            view=view,
+            ephemeral=True,
+        )
+
+        timed_out = await view.wait()
+        if timed_out or view.decision is None:
+            await interaction.followup.send(
+                "Guild ID confirmation timed out. Command aborted.",
+                ephemeral=True,
+            )
+            return None
+        if not view.decision:
+            return None
+        return overwrite_uploaded_guild_id(uploaded, current_guild_id)
+
     @log_async_lifecycle(
         logger,
         "command.schema.export",
@@ -390,6 +497,13 @@ class SchemaBot(discord.Client):
         is_admin = member_is_guild_admin(interaction.user)
         try:
             uploaded = await file.read()
+            uploaded = await self._maybe_confirm_guild_id_override(
+                interaction,
+                uploaded=uploaded,
+                command_name="command.schema.diff",
+            )
+            if uploaded is None:
+                return
             snapshot = build_snapshot_from_guild(interaction.guild)
             response = self.service.diff_schema(
                 snapshot,
@@ -441,6 +555,13 @@ class SchemaBot(discord.Client):
         is_admin = member_is_guild_admin(interaction.user)
         try:
             uploaded = await file.read()
+            uploaded = await self._maybe_confirm_guild_id_override(
+                interaction,
+                uploaded=uploaded,
+                command_name="command.schema.apply",
+            )
+            if uploaded is None:
+                return
             snapshot = build_snapshot_from_guild(interaction.guild)
             response = self.service.apply_schema_preview(
                 snapshot,

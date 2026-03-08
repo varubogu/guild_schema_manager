@@ -7,7 +7,12 @@ from typing import Any
 import pytest
 import yaml
 
-from bot.commands import ExportFieldSelection, SchemaCommandService
+from bot.commands import (
+    ExportFieldSelection,
+    SchemaCommandService,
+    extract_uploaded_guild_id,
+    overwrite_uploaded_guild_id,
+)
 from bot.executor import OperationExecutor
 from bot.executor.noop import NoopExecutor
 from bot.planner.models import ApplyOperation
@@ -427,3 +432,43 @@ def test_file_trust_mode_true_requires_full_schema() -> None:
             invoker_id=10,
             file_trust_mode=True,
         )
+
+
+def test_extract_uploaded_guild_id_returns_value_when_defined() -> None:
+    uploaded = yaml.safe_dump(
+        {
+            "guild": {
+                "id": "999",
+                "name": "Other Guild",
+            }
+        },
+        sort_keys=False,
+    ).encode("utf-8")
+
+    assert extract_uploaded_guild_id(uploaded) == "999"
+
+
+def test_extract_uploaded_guild_id_returns_none_without_valid_mapping() -> None:
+    uploaded_without_id = yaml.safe_dump(
+        {"guild": {"name": "Other Guild"}},
+        sort_keys=False,
+    ).encode("utf-8")
+
+    assert extract_uploaded_guild_id(uploaded_without_id) is None
+    assert extract_uploaded_guild_id(b"- not-a-mapping") is None
+
+
+def test_overwrite_uploaded_guild_id_rewrites_guild_id() -> None:
+    uploaded = yaml.safe_dump(
+        {
+            "guild": {"id": "999", "name": "Other Guild"},
+            "roles": [],
+        },
+        sort_keys=False,
+    ).encode("utf-8")
+
+    rewritten = overwrite_uploaded_guild_id(uploaded, "1")
+    payload = yaml.safe_load(rewritten)
+
+    assert payload["guild"]["id"] == "1"
+    assert payload["guild"]["name"] == "Other Guild"

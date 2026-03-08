@@ -6,6 +6,8 @@ from .service import (
     ExportResponse,
     FilePayload,
     SchemaCommandService,
+    extract_uploaded_guild_id,
+    overwrite_uploaded_guild_id,
 )
 
 __all__ = [
@@ -16,4 +18,6 @@ __all__ = [
     "ApplyPreviewResponse",
     "ApplyExecutionResponse",
     "FilePayload",
+    "extract_uploaded_guild_id",
+    "overwrite_uploaded_guild_id",
 ]

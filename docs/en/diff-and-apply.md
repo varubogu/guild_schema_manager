@@ -23,10 +23,12 @@ Example table columns:
 
 ## Apply Workflow
 `/schema apply` uses one command with confirmation UI:
-1. Validate uploaded schema.
-2. Compute diff and render preview.
-3. Present confirmation button to invoker.
-4. On approval, run backup then apply.
+1. Check uploaded `guild.id` mismatch against current guild.
+2. If mismatched and `guild.id` exists, ask whether to overwrite to current guild ID.
+3. Validate uploaded schema.
+4. Compute diff and render preview.
+5. Present confirmation button to invoker.
+6. On approval, run backup then apply.
 
 ## Partial Upload Rules
 - `file_trust_mode=false` (default): uploaded files can be partial.
@@ -36,6 +38,8 @@ Example table columns:
 - In trust mode, omission in uploaded file generates delete diffs.
 
 ## Confirmation Rules
+- If uploaded `guild.id` exists and differs from current guild, explicit confirmation is required before diff/apply parsing proceeds.
+- If that confirmation is cancelled or times out, command execution is aborted.
 - Confirm button is valid for 10 minutes.
 - Only invoker can confirm.
 - Non-invoker interaction returns rejection message.

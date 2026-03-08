@@ -17,6 +17,41 @@ def _snapshot(guild: object) -> str:
     return "snapshot"
 
 
+async def _passthrough_confirmation(
+    interaction: object,
+    *,
+    uploaded: bytes,
+    command_name: str,
+) -> bytes | None:
+    _ = interaction
+    _ = command_name
+    return uploaded
+
+
+async def _cancel_confirmation(
+    interaction: object,
+    *,
+    uploaded: bytes,
+    command_name: str,
+) -> bytes | None:
+    _ = interaction
+    _ = uploaded
+    _ = command_name
+    return None
+
+
+async def _override_confirmation(
+    interaction: object,
+    *,
+    uploaded: bytes,
+    command_name: str,
+) -> bytes | None:
+    _ = interaction
+    _ = uploaded
+    _ = command_name
+    return b"rewritten"
+
+
 class _FakeResponse:
     def __init__(self) -> None:
         self.messages: list[dict[str, object]] = []
@@ -122,7 +157,10 @@ def test_handle_export_defers_and_uses_followup(
     monkeypatch: Any,
 ) -> None:
     fake_service = _FakeService()
-    fake_bot = SimpleNamespace(service=fake_service)
+    fake_bot = SimpleNamespace(
+        service=fake_service,
+        _maybe_confirm_guild_id_override=_passthrough_confirmation,
+    )
     interaction = _FakeInteraction()
 
     monkeypatch.setattr(app_module, "member_is_guild_admin", _always_admin)
@@ -152,7 +190,10 @@ def test_handle_diff_passes_file_trust_mode_to_service(
     monkeypatch: Any,
 ) -> None:
     fake_service = _FakeService()
-    fake_bot = SimpleNamespace(service=fake_service)
+    fake_bot = SimpleNamespace(
+        service=fake_service,
+        _maybe_confirm_guild_id_override=_passthrough_confirmation,
+    )
     interaction = _FakeInteraction()
     attachment = _FakeAttachment(b"test")
 
@@ -182,7 +223,10 @@ def test_handle_apply_passes_file_trust_mode_to_service(
     monkeypatch: Any,
 ) -> None:
     fake_service = _FakeService()
-    fake_bot = SimpleNamespace(service=fake_service)
+    fake_bot = SimpleNamespace(
+        service=fake_service,
+        _maybe_confirm_guild_id_override=_passthrough_confirmation,
+    )
     interaction = _FakeInteraction()
     attachment = _FakeAttachment(b"test")
 
@@ -206,3 +250,65 @@ def test_handle_apply_passes_file_trust_mode_to_service(
     assert fake_service.apply_calls[0]["file_trust_mode"] is True
     assert interaction.response.deferred == [{"ephemeral": True}]
     assert interaction.followup.messages[0]["content"] == "apply-ok"
+
+
+def test_handle_diff_stops_when_guild_id_override_not_confirmed(
+    monkeypatch: Any,
+) -> None:
+    fake_service = _FakeService()
+    fake_bot = SimpleNamespace(
+        service=fake_service,
+        _maybe_confirm_guild_id_override=_cancel_confirmation,
+    )
+    interaction = _FakeInteraction()
+    attachment = _FakeAttachment(b"test")
+
+    monkeypatch.setattr(app_module, "member_is_guild_admin", _always_admin)
+    monkeypatch.setattr(
+        app_module,
+        "build_snapshot_from_guild",
+        _snapshot,
+    )
+
+    asyncio.run(
+        getattr(app_module.SchemaBot, "_handle_diff")(
+            fake_bot,
+            interaction,
+            attachment,
+            file_trust_mode=False,
+        )
+    )
+
+    assert fake_service.diff_calls == []
+    assert interaction.response.deferred == [{"ephemeral": True}]
+
+
+def test_handle_apply_uses_overridden_payload_after_guild_id_confirmation(
+    monkeypatch: Any,
+) -> None:
+    fake_service = _FakeService()
+    fake_bot = SimpleNamespace(
+        service=fake_service,
+        _maybe_confirm_guild_id_override=_override_confirmation,
+    )
+    interaction = _FakeInteraction()
+    attachment = _FakeAttachment(b"original")
+
+    monkeypatch.setattr(app_module, "member_is_guild_admin", _always_admin)
+    monkeypatch.setattr(
+        app_module,
+        "build_snapshot_from_guild",
+        _snapshot,
+    )
+
+    asyncio.run(
+        getattr(app_module.SchemaBot, "_handle_apply")(
+            fake_bot,
+            interaction,
+            attachment,
+            file_trust_mode=False,
+        )
+    )
+
+    assert len(fake_service.apply_calls) == 1
+    assert fake_service.apply_calls[0]["uploaded"] == b"rewritten"

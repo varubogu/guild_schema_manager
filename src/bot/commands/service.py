@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Callable
+from typing import Callable, cast
 
 try:
     import yaml
@@ -405,3 +405,49 @@ def parse_uploaded_schema(
         return parse_schema_yaml(uploaded)
     except (SchemaValidationError, DiffValidationError) as exc:
         raise ValueError(str(exc)) from exc
+
+
+def extract_uploaded_guild_id(uploaded: bytes | str) -> str | None:
+    try:
+        payload = _load_uploaded_mapping(uploaded)
+    except ValueError:
+        return None
+
+    guild_value = payload.get("guild")
+    if not isinstance(guild_value, dict):
+        return None
+    guild_payload = cast(dict[str, object], guild_value)
+
+    guild_id = guild_payload.get("id")
+    if not isinstance(guild_id, str) or not guild_id:
+        return None
+    return guild_id
+
+
+def overwrite_uploaded_guild_id(uploaded: bytes | str, guild_id: str) -> bytes:
+    payload = _load_uploaded_mapping(uploaded)
+    guild_value = payload.get("guild")
+    guild_payload: dict[str, object] = {}
+    if isinstance(guild_value, dict):
+        guild_payload = dict(cast(dict[str, object], guild_value))
+    guild_payload["id"] = guild_id
+    payload["guild"] = guild_payload
+    return _dump_yaml(payload).encode("utf-8")
+
+
+def _load_uploaded_mapping(uploaded: bytes | str) -> dict[str, object]:
+    text = uploaded.decode("utf-8") if isinstance(uploaded, bytes) else uploaded
+    if yaml is not None:
+        try:
+            loaded = yaml.safe_load(text)
+        except yaml.YAMLError as exc:
+            raise ValueError(f"Invalid YAML: {exc}") from exc
+    else:
+        try:
+            loaded = json.loads(text)
+        except json.JSONDecodeError as exc:
+            raise ValueError(f"Invalid YAML/JSON payload: {exc}") from exc
+
+    if not isinstance(loaded, dict):
+        raise ValueError("Top-level YAML must be a mapping")
+    return cast(dict[str, object], loaded)
