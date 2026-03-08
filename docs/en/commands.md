@@ -28,10 +28,6 @@ Output:
 
 Required bot permissions:
 - `View Channels`
-- `Read Message History`
-- `Send Messages`
-- `Attach Files`
-- `Use Application Commands`
 
 ## `/schema diff file:<attachment>`
 Purpose: compare uploaded schema against current guild and display diff.

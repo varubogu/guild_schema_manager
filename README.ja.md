@@ -70,10 +70,6 @@ uv run python -m bot
 - `Manage Roles`
 - `Manage Channels`
 - `View Channels`
-- `Send Messages`
-- `Attach Files`
-- `Read Message History`
-- `Use Application Commands`
 
 ## 初回の実運用フロー
 1. `/schema export` を実行し `guild-schema.yaml` を取得。

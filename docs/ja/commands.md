@@ -28,10 +28,6 @@
 
 必要な Bot 権限:
 - `View Channels`
-- `Read Message History`
-- `Send Messages`
-- `Attach Files`
-- `Use Application Commands`
 
 ## `/schema diff file:<attachment>`
 目的: アップロードされたスキーマと現行構成との差分を表示する。

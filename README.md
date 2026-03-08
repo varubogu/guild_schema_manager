@@ -70,10 +70,6 @@ uv run python -m bot
 - `Manage Roles`
 - `Manage Channels`
 - `View Channels`
-- `Send Messages`
-- `Attach Files`
-- `Read Message History`
-- `Use Application Commands`
 
 ## First Practical Workflow
 1. Run `/schema export` and download `guild-schema.yaml`.

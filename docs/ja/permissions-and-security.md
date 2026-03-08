@@ -13,10 +13,6 @@
 - `Manage Roles`（必要なロール操作範囲のみ）
 - `Manage Channels`
 - `View Channels`
-- `Send Messages`
-- `Attach Files`
-- `Read Message History`
-- `Use Application Commands`
 
 ## 実行者制御
 - すべての `/schema` コマンドは実行者のギルド `Administrator` 権限を必須とする。

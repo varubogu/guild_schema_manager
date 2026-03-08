@@ -13,10 +13,6 @@ Note:
 - `Manage Roles` (only required role operations)
 - `Manage Channels`
 - `View Channels`
-- `Send Messages`
-- `Attach Files`
-- `Read Message History`
-- `Use Application Commands`
 
 ## Command Invoker Controls
 - All `/schema` commands require invoker guild `Administrator` permission.
