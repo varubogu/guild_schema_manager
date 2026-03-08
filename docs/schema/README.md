@@ -3,10 +3,10 @@
 This directory is intended to be published via GitHub Pages.
 
 Versioned schema endpoints:
-- `/schema/v1/schema.json`
+- [`/schema/v1/schema.json`](./v1/schema.json)
 
 Alias endpoint:
-- `/schema/latest/schema.json`
+- [`/schema/latest/schema.json`](./latest/schema.json)
 
 Notes:
 - Keep released version directories immutable.

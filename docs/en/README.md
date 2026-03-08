@@ -43,3 +43,9 @@ Core goals:
 ## Canonical Language Policy
 - `docs/en` is the canonical source.
 - `docs/ja` must stay functionally equivalent.
+
+## Other Languages
+- [日本語ドキュメント](../ja/)
+
+## Back to Docs Root
+- [Docs home](../)
