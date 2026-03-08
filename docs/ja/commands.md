@@ -9,6 +9,12 @@
 - 非管理者の実行は diff/apply 計画作成前に拒否する。
 - この制約は `/schema export`、`/schema diff`、`/schema apply` すべてに適用する。
 
+## レスポンス言語
+- ユーザー向けメッセージは実行者ロケールに応じて表示する。
+- ユーザーロケールが日本語（`ja`）の場合は日本語で表示する。
+- 日本語以外のロケールはすべて英語（`en`）として扱う。
+- ローカライズ対象は、コマンド説明、ボタンラベル、確認プロンプト、エラーメッセージ、diff/apply の Markdown 見出しと状態名。
+
 ## 公開インターフェース
 1. `/schema export`
 2. `/schema diff file:<attachment> file_trust_mode:<bool=false>`

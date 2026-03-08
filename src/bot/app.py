@@ -15,6 +15,7 @@ from bot.commands import (
 from bot.config import Settings
 from bot.executor.discord_executor import DiscordGuildExecutor
 from bot.executor.noop import NoopExecutor
+from bot.localization import SupportedLocale, resolve_user_locale, t
 from bot.logging_utils import log_async_lifecycle
 from bot.security import AuthorizationError, member_is_guild_admin
 from bot.session_store import InMemorySessionStore
@@ -25,63 +26,28 @@ logger = logging.getLogger(__name__)
 LOCALIZATION_KEY = "key"
 
 
-def _localized(message: str, key: str) -> app_commands.locale_str:
-    return app_commands.locale_str(message, key=key)
+def _localized(key: str) -> app_commands.locale_str:
+    return app_commands.locale_str(t(key, "en"), key=key)
 
 
-GROUP_DESCRIPTION = _localized(
-    "Guild schema operations",
-    "schema.group.description",
-)
-EXPORT_DESCRIPTION = _localized(
-    "Export guild schema to YAML",
-    "schema.command.export.description",
-)
-DIFF_DESCRIPTION = _localized(
-    "Diff uploaded YAML against current guild",
-    "schema.command.diff.description",
-)
-APPLY_DESCRIPTION = _localized(
-    "Preview and apply uploaded YAML",
-    "schema.command.apply.description",
-)
-SCHEMA_FILE_DESCRIPTION = _localized(
-    "Schema YAML file",
-    "schema.argument.file.description",
-)
-FILE_TRUST_MODE_DESCRIPTION = _localized(
-    "Treat uploaded file as source of truth (strict full-schema mode)",
-    "schema.argument.file_trust_mode.description",
-)
+GROUP_DESCRIPTION = _localized("schema.group.description")
+EXPORT_DESCRIPTION = _localized("schema.command.export.description")
+DIFF_DESCRIPTION = _localized("schema.command.diff.description")
+APPLY_DESCRIPTION = _localized("schema.command.apply.description")
+SCHEMA_FILE_DESCRIPTION = _localized("schema.argument.file.description")
+FILE_TRUST_MODE_DESCRIPTION = _localized("schema.argument.file_trust_mode.description")
 EXPORT_INCLUDE_NAME_DESCRIPTION = _localized(
-    "Include names",
-    "schema.argument.export.include_name.description",
+    "schema.argument.export.include_name.description"
 )
 EXPORT_INCLUDE_PERMISSIONS_DESCRIPTION = _localized(
-    "Include role permissions",
-    "schema.argument.export.include_permissions.description",
+    "schema.argument.export.include_permissions.description"
 )
 EXPORT_INCLUDE_ROLE_OVERWRITES_DESCRIPTION = _localized(
-    "Include role overwrite permissions",
-    "schema.argument.export.include_role_overwrites.description",
+    "schema.argument.export.include_role_overwrites.description"
 )
 EXPORT_INCLUDE_OTHER_SETTINGS_DESCRIPTION = _localized(
-    "Include other settings",
-    "schema.argument.export.include_other_settings.description",
+    "schema.argument.export.include_other_settings.description"
 )
-
-JA_TRANSLATIONS: dict[str, str] = {
-    "schema.group.description": "ギルドスキーマ操作",
-    "schema.command.export.description": "ギルド構成をYAML出力",
-    "schema.command.diff.description": "アップロードYAMLと現在のギルド構成を比較",
-    "schema.command.apply.description": "アップロードYAMLをプレビューして適用",
-    "schema.argument.file.description": "スキーマYAMLファイル",
-    "schema.argument.file_trust_mode.description": "ファイルを正として扱う（厳格フルスキーマ）",
-    "schema.argument.export.include_name.description": "名前を含める",
-    "schema.argument.export.include_permissions.description": "ロールのpermissionsを含める",
-    "schema.argument.export.include_role_overwrites.description": "ロール上書き権限を含める",
-    "schema.argument.export.include_other_settings.description": "その他設定を含める",
-}
 
 
 class SchemaCommandTranslator(app_commands.Translator):
@@ -92,13 +58,22 @@ class SchemaCommandTranslator(app_commands.Translator):
         context: app_commands.TranslationContextTypes,
     ) -> str | None:
         _ = context
-        if locale != discord.Locale.japanese:
-            return None
-
         key = string.extras.get(LOCALIZATION_KEY)
         if not isinstance(key, str):
             return None
-        return JA_TRANSLATIONS.get(key)
+
+        locale_code = resolve_user_locale(locale)
+        if locale_code != "ja":
+            return None
+
+        translated = t(key, locale_code)
+        if translated == key:
+            return None
+        return translated
+
+
+def _interaction_locale(interaction: discord.Interaction) -> SupportedLocale:
+    return resolve_user_locale(getattr(interaction, "locale", None))
 
 
 def _interaction_context(interaction: discord.Interaction) -> dict[str, object]:
@@ -153,54 +128,74 @@ def _file_command_context(
 
 
 class GuildIdOverrideView(discord.ui.View):
-    def __init__(self, *, invoker_id: int, timeout: float) -> None:
+    def __init__(
+        self,
+        *,
+        invoker_id: int,
+        timeout: float,
+        locale: SupportedLocale,
+    ) -> None:
         super().__init__(timeout=timeout)
         self._invoker_id = invoker_id
+        self._locale: SupportedLocale = locale
         self.decision: bool | None = None
+
+        approve_button = discord.ui.Button[GuildIdOverrideView](
+            label=t("ui.button.guild_id_override.approve", locale),
+            style=discord.ButtonStyle.success,
+        )
+        cancel_button = discord.ui.Button[GuildIdOverrideView](
+            label=t("ui.button.cancel", locale),
+            style=discord.ButtonStyle.secondary,
+        )
+
+        async def on_approve(interaction: discord.Interaction) -> None:
+            await self.approve(interaction, approve_button)
+
+        async def on_cancel(interaction: discord.Interaction) -> None:
+            await self.cancel(interaction, cancel_button)
+
+        approve_button.callback = on_approve
+        cancel_button.callback = on_cancel
+        self.add_item(approve_button)
+        self.add_item(cancel_button)
 
     async def _reject_non_invoker(self, interaction: discord.Interaction) -> bool:
         if interaction.user.id == self._invoker_id:
             return False
+        response_locale = _interaction_locale(interaction)
         await interaction.response.send_message(
-            "Only the original invoker can respond to this confirmation.",
+            t("ui.error.invoker_only_confirmation_response", response_locale),
             ephemeral=True,
         )
         return True
 
-    @discord.ui.button(
-        label="Overwrite guild.id and continue",
-        style=discord.ButtonStyle.success,
-    )
-    async def approve(  # type: ignore[override]
+    async def approve(
         self,
         interaction: discord.Interaction,
-        button: discord.ui.Button["GuildIdOverrideView"],
+        button: discord.ui.Button[GuildIdOverrideView],
     ) -> None:
         _ = button
         if await self._reject_non_invoker(interaction):
             return
         self.decision = True
         await interaction.response.edit_message(
-            content="Guild ID override approved. Continuing command execution.",
+            content=t("ui.guild_id_override.approved", self._locale),
             view=None,
         )
         self.stop()
 
-    @discord.ui.button(
-        label="Cancel",
-        style=discord.ButtonStyle.secondary,
-    )
-    async def cancel(  # type: ignore[override]
+    async def cancel(
         self,
         interaction: discord.Interaction,
-        button: discord.ui.Button["GuildIdOverrideView"],
+        button: discord.ui.Button[GuildIdOverrideView],
     ) -> None:
         _ = button
         if await self._reject_non_invoker(interaction):
             return
         self.decision = False
         await interaction.response.edit_message(
-            content="Guild ID override canceled. Command aborted.",
+            content=t("ui.guild_id_override.canceled", self._locale),
             view=None,
         )
         self.stop()
@@ -213,29 +208,42 @@ class ConfirmApplyView(discord.ui.View):
         token: str,
         *,
         timeout: float,
+        locale: SupportedLocale,
     ) -> None:
         super().__init__(timeout=timeout)
         self._service = service
         self._token = token
+        self._locale: SupportedLocale = locale
 
-    @discord.ui.button(label="Confirm Apply", style=discord.ButtonStyle.danger)
+        button = discord.ui.Button[ConfirmApplyView](
+            label=t("ui.button.confirm_apply", locale),
+            style=discord.ButtonStyle.danger,
+        )
+
+        async def on_confirm(interaction: discord.Interaction) -> None:
+            await self.confirm(interaction, button)
+
+        button.callback = on_confirm
+        self.add_item(button)
+
     @log_async_lifecycle(
         logger,
         "command.schema.apply.confirm",
         _confirm_context,
     )
-    async def confirm(  # type: ignore[override]
+    async def confirm(
         self,
         interaction: discord.Interaction,
-        button: discord.ui.Button["ConfirmApplyView"],
+        button: discord.ui.Button[ConfirmApplyView],
     ) -> None:
         _ = button
+        locale = _interaction_locale(interaction)
         if interaction.guild is None:
             logger.warning(
                 "command.schema.apply.confirm rejected reason=guild_required"
             )
             await interaction.response.send_message(
-                "This command must be used in a guild.", ephemeral=True
+                t("ui.error.guild_required", locale), ephemeral=True
             )
             return
 
@@ -248,6 +256,7 @@ class ConfirmApplyView(discord.ui.View):
                 invoker_id=interaction.user.id,
                 current=snapshot,
                 executor=DiscordGuildExecutor(interaction.guild),
+                locale=locale,
             )
         except Exception:  # noqa: BLE001
             logger.exception(
@@ -255,8 +264,10 @@ class ConfirmApplyView(discord.ui.View):
                 interaction.guild.id,
                 interaction.user.id,
             )
-            message = "Apply execution failed due to an unexpected error."
-            await interaction.followup.send(message, ephemeral=True)
+            await interaction.followup.send(
+                t("ui.error.apply_unexpected", locale),
+                ephemeral=True,
+            )
             return
 
         files: list[discord.File] = []
@@ -382,6 +393,7 @@ class SchemaBot(discord.Client):
         *,
         uploaded: bytes,
         command_name: str,
+        locale: SupportedLocale,
     ) -> bytes | None:
         if interaction.guild is None:
             return None
@@ -403,12 +415,15 @@ class SchemaBot(discord.Client):
         view = GuildIdOverrideView(
             invoker_id=interaction.user.id,
             timeout=float(self.settings.confirm_ttl_seconds),
+            locale=locale,
         )
         await interaction.followup.send(
-            "Uploaded schema uses a different guild.id.\n"
-            f"- file guild.id: `{uploaded_guild_id}`\n"
-            f"- this guild.id: `{current_guild_id}`\n\n"
-            "Overwrite guild.id to this server and continue?",
+            t(
+                "ui.guild_id_override.prompt",
+                locale,
+                uploaded_guild_id=uploaded_guild_id,
+                current_guild_id=current_guild_id,
+            ),
             view=view,
             ephemeral=True,
         )
@@ -416,7 +431,7 @@ class SchemaBot(discord.Client):
         timed_out = await view.wait()
         if timed_out or view.decision is None:
             await interaction.followup.send(
-                "Guild ID confirmation timed out. Command aborted.",
+                t("ui.guild_id_override.timed_out", locale),
                 ephemeral=True,
             )
             return None
@@ -437,10 +452,12 @@ class SchemaBot(discord.Client):
         include_role_overwrites: bool,
         include_other_settings: bool,
     ) -> None:
+        locale = _interaction_locale(interaction)
         if interaction.guild is None:
             logger.warning("command.schema.export rejected reason=guild_required")
             await interaction.response.send_message(
-                "This command must be used in a guild.", ephemeral=True
+                t("ui.error.guild_required", locale),
+                ephemeral=True,
             )
             return
 
@@ -458,6 +475,7 @@ class SchemaBot(discord.Client):
                     include_role_overwrites=include_role_overwrites,
                     include_other_settings=include_other_settings,
                 ),
+                locale=locale,
             )
         except AuthorizationError as exc:
             logger.warning(
@@ -469,10 +487,12 @@ class SchemaBot(discord.Client):
             await interaction.followup.send(str(exc), ephemeral=True)
             return
 
-        file = discord.File(
+        file_obj = discord.File(
             fp=io.BytesIO(response.file.content), filename=response.file.filename
         )
-        await interaction.followup.send(response.markdown, file=file, ephemeral=True)
+        await interaction.followup.send(
+            response.markdown, file=file_obj, ephemeral=True
+        )
 
     @log_async_lifecycle(
         logger,
@@ -485,10 +505,12 @@ class SchemaBot(discord.Client):
         file: discord.Attachment,
         file_trust_mode: bool,
     ) -> None:
+        locale = _interaction_locale(interaction)
         if interaction.guild is None:
             logger.warning("command.schema.diff rejected reason=guild_required")
             await interaction.response.send_message(
-                "This command must be used in a guild.", ephemeral=True
+                t("ui.error.guild_required", locale),
+                ephemeral=True,
             )
             return
 
@@ -501,6 +523,7 @@ class SchemaBot(discord.Client):
                 interaction,
                 uploaded=uploaded,
                 command_name="command.schema.diff",
+                locale=locale,
             )
             if uploaded is None:
                 return
@@ -510,6 +533,7 @@ class SchemaBot(discord.Client):
                 uploaded,
                 invoker_is_admin=is_admin,
                 file_trust_mode=file_trust_mode,
+                locale=locale,
             )
         except AuthorizationError as exc:
             logger.warning(
@@ -527,7 +551,10 @@ class SchemaBot(discord.Client):
                 interaction.user.id,
                 file.filename,
             )
-            await interaction.followup.send(f"Validation error: {exc}", ephemeral=True)
+            await interaction.followup.send(
+                t("ui.error.validation", locale, error=str(exc)),
+                ephemeral=True,
+            )
             return
 
         await interaction.followup.send(response.markdown, ephemeral=True)
@@ -543,10 +570,12 @@ class SchemaBot(discord.Client):
         file: discord.Attachment,
         file_trust_mode: bool,
     ) -> None:
+        locale = _interaction_locale(interaction)
         if interaction.guild is None:
             logger.warning("command.schema.apply rejected reason=guild_required")
             await interaction.response.send_message(
-                "This command must be used in a guild.", ephemeral=True
+                t("ui.error.guild_required", locale),
+                ephemeral=True,
             )
             return
 
@@ -559,6 +588,7 @@ class SchemaBot(discord.Client):
                 interaction,
                 uploaded=uploaded,
                 command_name="command.schema.apply",
+                locale=locale,
             )
             if uploaded is None:
                 return
@@ -569,6 +599,7 @@ class SchemaBot(discord.Client):
                 invoker_is_admin=is_admin,
                 invoker_id=interaction.user.id,
                 file_trust_mode=file_trust_mode,
+                locale=locale,
             )
         except AuthorizationError as exc:
             logger.warning(
@@ -586,7 +617,10 @@ class SchemaBot(discord.Client):
                 interaction.user.id,
                 file.filename,
             )
-            await interaction.followup.send(f"Validation error: {exc}", ephemeral=True)
+            await interaction.followup.send(
+                t("ui.error.validation", locale, error=str(exc)),
+                ephemeral=True,
+            )
             return
 
         if response.confirmation_token is None:
@@ -597,6 +631,7 @@ class SchemaBot(discord.Client):
             self.service,
             response.confirmation_token,
             timeout=float(self.settings.confirm_ttl_seconds),
+            locale=locale,
         )
         await interaction.followup.send(response.markdown, view=view, ephemeral=True)
 

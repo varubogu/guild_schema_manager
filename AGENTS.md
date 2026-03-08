@@ -35,6 +35,11 @@ Build and maintain a Discord Server Schema Manager Bot that can export, diff, an
 - Dependency and task runner: `uv`.
 - Testing: `pytest`.
 - Production packaging: Docker.
+- Implementation proposal/plan documents must use this fixed format:
+  1. `Summary`
+  2. `Implementation Changes`
+  3. `Test Plan`
+  4. `Assumptions and Defaults`
 
 ## Required Final Checks
 - Every implementation task must run these commands before completion:

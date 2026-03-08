@@ -6,6 +6,7 @@ readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
   "discord.py>=2.4.0,<3.0.0",
+  "python-i18n>=0.3.9",
   "PyYAML>=6.0.1,<7.0.0",
 ]
 
@@ -32,6 +33,9 @@ exclude = [".venv", "**/__pycache__", ".pytest_cache", ".ruff_cache", "**/node_m
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/bot"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"src/bot/messages.yaml" = "bot/messages.yaml"
 
 [build-system]
 requires = ["hatchling>=1.25.0"]

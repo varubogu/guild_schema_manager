@@ -9,6 +9,12 @@
 - Non-administrator invokers are rejected before any diff/apply planning.
 - This restriction applies to `/schema export`, `/schema diff`, and `/schema apply`.
 
+## Response Language
+- User-facing messages are localized per invoker locale.
+- If user locale is Japanese (`ja`), responses are shown in Japanese.
+- Any non-Japanese locale is treated as English (`en`).
+- Localization applies to command descriptions, button labels, confirmation prompts, errors, and diff/apply Markdown headings/status labels.
+
 ## Public Command Interface
 1. `/schema export`
 2. `/schema diff file:<attachment> file_trust_mode:<bool=false>`

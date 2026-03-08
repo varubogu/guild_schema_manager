@@ -1,0 +1,190 @@
+schema.group.description:
+  ja: "ギルドスキーマ操作"
+  en: "Guild schema operations"
+schema.command.export.description:
+  ja: "ギルド構成をYAML出力"
+  en: "Export guild schema to YAML"
+schema.command.diff.description:
+  ja: "アップロードYAMLと現在のギルド構成を比較"
+  en: "Diff uploaded YAML against current guild"
+schema.command.apply.description:
+  ja: "アップロードYAMLをプレビューして適用"
+  en: "Preview and apply uploaded YAML"
+schema.argument.file.description:
+  ja: "スキーマYAMLファイル"
+  en: "Schema YAML file"
+schema.argument.file_trust_mode.description:
+  ja: "ファイルを正として扱う（厳格フルスキーマ）"
+  en: "Treat uploaded file as source of truth (strict full-schema mode)"
+schema.argument.export.include_name.description:
+  ja: "名前を含める"
+  en: "Include names"
+schema.argument.export.include_permissions.description:
+  ja: "ロールのpermissionsを含める"
+  en: "Include role permissions"
+schema.argument.export.include_role_overwrites.description:
+  ja: "ロール上書き権限を含める"
+  en: "Include role overwrite permissions"
+schema.argument.export.include_other_settings.description:
+  ja: "その他設定を含める"
+  en: "Include other settings"
+
+ui.button.guild_id_override.approve:
+  ja: "guild.idを上書きして続行"
+  en: "Overwrite guild.id and continue"
+ui.button.cancel:
+  ja: "キャンセル"
+  en: "Cancel"
+ui.button.confirm_apply:
+  ja: "適用を確認"
+  en: "Confirm Apply"
+
+ui.error.invoker_only_confirmation_response:
+  ja: "この確認には元の実行者のみ応答できます。"
+  en: "Only the original invoker can respond to this confirmation."
+ui.guild_id_override.approved:
+  ja: "guild.id の上書きを承認しました。コマンド処理を続行します。"
+  en: "Guild ID override approved. Continuing command execution."
+ui.guild_id_override.canceled:
+  ja: "guild.id の上書きをキャンセルしました。コマンドを中止します。"
+  en: "Guild ID override canceled. Command aborted."
+ui.error.guild_required:
+  ja: "このコマンドはギルド内でのみ使用できます。"
+  en: "This command must be used in a guild."
+ui.error.apply_unexpected:
+  ja: "予期しないエラーにより適用の実行に失敗しました。"
+  en: "Apply execution failed due to an unexpected error."
+ui.guild_id_override.prompt:
+  ja: |-
+    アップロードされたスキーマの guild.id がこのサーバーと異なります。
+    - ファイルの guild.id: `%{uploaded_guild_id}`
+    - このサーバーの guild.id: `%{current_guild_id}`
+
+    guild.id をこのサーバーのIDで上書きして続行しますか？
+  en: |-
+    Uploaded schema uses a different guild.id.
+    - file guild.id: `%{uploaded_guild_id}`
+    - this guild.id: `%{current_guild_id}`
+
+    Overwrite guild.id to this server and continue?
+ui.guild_id_override.timed_out:
+  ja: "guild.id の確認がタイムアウトしました。コマンドを中止します。"
+  en: "Guild ID confirmation timed out. Command aborted."
+ui.error.validation:
+  ja: "検証エラー: %{error}"
+  en: "Validation error: %{error}"
+
+security.error.guild_admin_required:
+  ja: "Guild管理者権限が必要です"
+  en: "Guild administrator permission is required"
+security.error.invoker_only_apply:
+  ja: "この適用確認は元の実行者のみ実行できます"
+  en: "Only the original invoker can confirm this apply"
+
+service.export.summary:
+  ja: "エクスポート完了 roles=%{roles}, categories=%{categories}, channels=%{channels}"
+  en: "Exported roles=%{roles}, categories=%{categories}, channels=%{channels}"
+service.export.filtered_suffix:
+  ja: "（フィルタ出力）。未指定項目は /schema diff と /schema apply で現状維持として扱われます。"
+  en: "(filtered fields). Omitted fields are treated as keep-current for /schema diff and /schema apply."
+service.apply.no_changes:
+  ja: "変更は検出されませんでした。適用対象はありません。"
+  en: "No changes detected. Nothing to apply."
+service.apply.confirmation_token:
+  ja: "確認トークン: `%{token}`（有効期限10分）"
+  en: "Confirmation token: `%{token}` (valid for 10 minutes)"
+service.apply.session_not_found:
+  ja: "確認セッションが見つかりません。/schema apply を再実行してください。"
+  en: "Confirmation session not found. Please rerun /schema apply."
+service.apply.session_expired:
+  ja: "確認の有効期限が切れました。/schema apply を再実行してください。"
+  en: "Confirmation expired. Please rerun /schema apply."
+service.apply.session_forbidden:
+  ja: "この適用確認は元の実行者のみ実行できます。"
+  en: "Only the original invoker can confirm this apply."
+service.apply.session_error:
+  ja: "確認処理に失敗しました: %{error}"
+  en: "Confirmation failed: %{error}"
+
+render.diff.title:
+  ja: "差分サマリー"
+  en: "Diff Summary"
+render.diff.summary_line:
+  ja: "%{create_label}: %{create_count}, %{update_label}: %{update_count}, %{delete_label}: %{delete_count}, %{move_label}: %{move_count}, %{reorder_label}: %{reorder_count}"
+  en: "%{create_label}: %{create_count}, %{update_label}: %{update_count}, %{delete_label}: %{delete_count}, %{move_label}: %{move_count}, %{reorder_label}: %{reorder_count}"
+render.diff.column.action:
+  ja: "action"
+  en: "action"
+render.diff.column.target_type:
+  ja: "target_type"
+  en: "target_type"
+render.diff.column.target_id:
+  ja: "target_id"
+  en: "target_id"
+render.diff.column.risk:
+  ja: "risk"
+  en: "risk"
+render.diff.column.before:
+  ja: "before"
+  en: "before"
+render.diff.column.after:
+  ja: "after"
+  en: "after"
+
+render.apply.title:
+  ja: "適用結果"
+  en: "Apply Result"
+render.apply.summary_line:
+  ja: "applied: %{applied}, failed: %{failed}, skipped: %{skipped}"
+  en: "applied: %{applied}, failed: %{failed}, skipped: %{skipped}"
+render.apply.section.failed:
+  ja: "失敗"
+  en: "Failed"
+render.apply.section.skipped:
+  ja: "スキップ"
+  en: "Skipped"
+render.apply.item.failed:
+  ja: "%{operation_id} %{target_type}(%{target_id}) error=%{error}"
+  en: "%{operation_id} %{target_type}(%{target_id}) error=%{error}"
+render.apply.item.skipped:
+  ja: "%{operation_id} %{target_type}(%{target_id}) reason=%{reason}"
+  en: "%{operation_id} %{target_type}(%{target_id}) reason=%{reason}"
+
+render.action.create:
+  ja: "作成"
+  en: "Create"
+render.action.update:
+  ja: "更新"
+  en: "Update"
+render.action.delete:
+  ja: "削除"
+  en: "Delete"
+render.action.move:
+  ja: "移動"
+  en: "Move"
+render.action.reorder:
+  ja: "並び替え"
+  en: "Reorder"
+
+render.target_type.role:
+  ja: "role"
+  en: "role"
+render.target_type.category:
+  ja: "category"
+  en: "category"
+render.target_type.channel:
+  ja: "channel"
+  en: "channel"
+render.target_type.overwrite:
+  ja: "overwrite"
+  en: "overwrite"
+
+render.risk.low:
+  ja: "低"
+  en: "low"
+render.risk.medium:
+  ja: "中"
+  en: "medium"
+render.risk.high:
+  ja: "高"
+  en: "high"

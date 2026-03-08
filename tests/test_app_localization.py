@@ -6,14 +6,20 @@ from typing import Any, cast
 import discord
 from discord import app_commands
 
-from bot.app import JA_TRANSLATIONS, LOCALIZATION_KEY, SchemaCommandTranslator
+from bot.app import LOCALIZATION_KEY, SchemaCommandTranslator
+from bot.localization import (
+    REQUIRED_MESSAGE_IDS,
+    has_message_id,
+    resolve_user_locale,
+    t,
+)
 
 
 def test_schema_command_translator_returns_japanese_translation() -> None:
     translator = SchemaCommandTranslator()
     key = "schema.command.export.description"
     localized = app_commands.locale_str(
-        "Export guild schema to YAML",
+        t(key, "en"),
         **{LOCALIZATION_KEY: key},
     )
 
@@ -21,13 +27,13 @@ def test_schema_command_translator_returns_japanese_translation() -> None:
         translator.translate(localized, discord.Locale.japanese, cast(Any, None))
     )
 
-    assert translated == JA_TRANSLATIONS[key]
+    assert translated == t(key, "ja")
 
 
 def test_schema_command_translator_returns_none_for_non_japanese_locale() -> None:
     translator = SchemaCommandTranslator()
     localized = app_commands.locale_str(
-        "Export guild schema to YAML",
+        t("schema.command.export.description", "en"),
         **{LOCALIZATION_KEY: "schema.command.export.description"},
     )
 
@@ -56,16 +62,16 @@ def test_schema_command_translator_returns_none_for_unknown_key() -> None:
     assert translated is None
 
 
-def test_schema_command_translator_supports_file_trust_mode_description() -> None:
-    translator = SchemaCommandTranslator()
-    key = "schema.argument.file_trust_mode.description"
-    localized = app_commands.locale_str(
-        "Treat uploaded file as source of truth (strict full-schema mode)",
-        **{LOCALIZATION_KEY: key},
-    )
+def test_resolve_user_locale_treats_only_japanese_as_ja() -> None:
+    assert resolve_user_locale(discord.Locale.japanese) == "ja"
+    assert resolve_user_locale("ja-JP") == "ja"
+    assert resolve_user_locale(discord.Locale.american_english) == "en"
+    assert resolve_user_locale(discord.Locale.french) == "en"
+    assert resolve_user_locale(None) == "en"
 
-    translated = asyncio.run(
-        translator.translate(localized, discord.Locale.japanese, cast(Any, None))
-    )
 
-    assert translated == JA_TRANSLATIONS[key]
+def test_catalog_contains_required_ids_for_both_locales() -> None:
+    for message_id in REQUIRED_MESSAGE_IDS:
+        assert has_message_id(message_id)
+        assert t(message_id, "ja") != message_id
+        assert t(message_id, "en") != message_id

@@ -37,6 +37,14 @@ uv run python -m bot
 uv run pytest
 ```
 
+## Development Documentation Rule
+- Implementation proposal/plan documents are required to follow this fixed structure:
+  1. `Summary`
+  2. `Implementation Changes`
+  3. `Test Plan`
+  4. `Assumptions and Defaults`
+- Treat this as a mandatory development rule for implementation planning docs (including files under `plans/`).
+
 ## Docker Production
 Container requirements:
 - Non-root runtime user.

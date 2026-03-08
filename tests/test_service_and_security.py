@@ -171,6 +171,15 @@ def test_export_can_filter_fields_while_always_including_ids() -> None:
     assert "Omitted fields are treated as keep-current" in response.markdown
 
 
+def test_export_uses_japanese_locale_when_requested() -> None:
+    current = parse_schema_dict(base_schema_dict())
+    srv = service()
+
+    response = srv.export_schema(current, invoker_is_admin=True, locale="ja")
+
+    assert response.markdown.startswith("エクスポート完了")
+
+
 def test_export_default_includes_role_and_member_overwrites() -> None:
     current = parse_schema_dict(schema_with_overwrites_dict())
     srv = service()
@@ -390,6 +399,20 @@ def test_diff_partial_schema_keeps_unspecified_entities() -> None:
     assert "patched-topic" in response.markdown
 
 
+def test_diff_uses_japanese_labels_when_requested() -> None:
+    current = parse_schema_dict(base_schema_dict())
+    uploaded = yaml.safe_dump(
+        {"roles": [{"id": "100", "name": "Ops"}]},
+        sort_keys=False,
+    ).encode("utf-8")
+
+    srv = service()
+    response = srv.diff_schema(current, uploaded, invoker_is_admin=True, locale="ja")
+
+    assert "## 差分サマリー" in response.markdown
+    assert "更新" in response.markdown
+
+
 def test_diff_file_trust_mode_true_treats_omission_as_delete() -> None:
     current = parse_schema_dict(base_schema_dict())
     uploaded = yaml.safe_dump(
@@ -413,6 +436,23 @@ def test_diff_file_trust_mode_true_treats_omission_as_delete() -> None:
 
     assert "Delete: 1" in response.markdown
     assert "| Delete | role | 100 |" in response.markdown
+
+
+def test_apply_preview_no_changes_is_localized_for_japanese() -> None:
+    current = parse_schema_dict(base_schema_dict())
+    uploaded = schema_to_yaml(current).encode("utf-8")
+    srv = service()
+
+    preview = srv.apply_schema_preview(
+        current,
+        uploaded,
+        invoker_is_admin=True,
+        invoker_id=1,
+        locale="ja",
+    )
+
+    assert preview.confirmation_token is None
+    assert preview.markdown == "変更は検出されませんでした。適用対象はありません。"
 
 
 def test_file_trust_mode_true_requires_full_schema() -> None:

@@ -22,9 +22,11 @@ async def _passthrough_confirmation(
     *,
     uploaded: bytes,
     command_name: str,
+    locale: str,
 ) -> bytes | None:
     _ = interaction
     _ = command_name
+    _ = locale
     return uploaded
 
 
@@ -33,10 +35,12 @@ async def _cancel_confirmation(
     *,
     uploaded: bytes,
     command_name: str,
+    locale: str,
 ) -> bytes | None:
     _ = interaction
     _ = uploaded
     _ = command_name
+    _ = locale
     return None
 
 
@@ -45,10 +49,12 @@ async def _override_confirmation(
     *,
     uploaded: bytes,
     command_name: str,
+    locale: str,
 ) -> bytes | None:
     _ = interaction
     _ = uploaded
     _ = command_name
+    _ = locale
     return b"rewritten"
 
 
@@ -74,10 +80,17 @@ class _FakeFollowup:
 
 class _FakeInteraction:
     def __init__(self) -> None:
-        self.guild = SimpleNamespace(id=123)
+        self.guild: SimpleNamespace | None = SimpleNamespace(id=123)
         self.user = SimpleNamespace(id=456)
+        self.locale = "en-US"
         self.response = _FakeResponse()
         self.followup = _FakeFollowup()
+
+
+class _FakeJapaneseInteraction(_FakeInteraction):
+    def __init__(self) -> None:
+        super().__init__()
+        self.locale = "ja"
 
 
 class _FakeAttachment:
@@ -101,12 +114,14 @@ class _FakeService:
         *,
         invoker_is_admin: bool,
         fields: object | None = None,
+        locale: str = "en",
     ) -> object:
         self.export_calls.append(
             {
                 "current": current,
                 "invoker_is_admin": invoker_is_admin,
                 "fields": fields,
+                "locale": locale,
             }
         )
         return SimpleNamespace(
@@ -121,6 +136,7 @@ class _FakeService:
         *,
         invoker_is_admin: bool,
         file_trust_mode: bool = False,
+        locale: str = "en",
     ) -> object:
         self.diff_calls.append(
             {
@@ -128,6 +144,7 @@ class _FakeService:
                 "uploaded": uploaded,
                 "invoker_is_admin": invoker_is_admin,
                 "file_trust_mode": file_trust_mode,
+                "locale": locale,
             }
         )
         return SimpleNamespace(markdown="diff-ok")
@@ -140,6 +157,7 @@ class _FakeService:
         invoker_is_admin: bool,
         invoker_id: int,
         file_trust_mode: bool = False,
+        locale: str = "en",
     ) -> object:
         self.apply_calls.append(
             {
@@ -148,6 +166,7 @@ class _FakeService:
                 "invoker_is_admin": invoker_is_admin,
                 "invoker_id": invoker_id,
                 "file_trust_mode": file_trust_mode,
+                "locale": locale,
             }
         )
         return SimpleNamespace(markdown="apply-ok", confirmation_token=None)
@@ -182,6 +201,7 @@ def test_handle_export_defers_and_uses_followup(
     )
 
     assert len(fake_service.export_calls) == 1
+    assert fake_service.export_calls[0]["locale"] == "en"
     assert interaction.response.deferred == [{"ephemeral": True}]
     assert interaction.followup.messages[0]["content"] == "export-ok"
 
@@ -215,6 +235,7 @@ def test_handle_diff_passes_file_trust_mode_to_service(
 
     assert len(fake_service.diff_calls) == 1
     assert fake_service.diff_calls[0]["file_trust_mode"] is True
+    assert fake_service.diff_calls[0]["locale"] == "en"
     assert interaction.response.deferred == [{"ephemeral": True}]
     assert interaction.followup.messages[0]["content"] == "diff-ok"
 
@@ -248,6 +269,7 @@ def test_handle_apply_passes_file_trust_mode_to_service(
 
     assert len(fake_service.apply_calls) == 1
     assert fake_service.apply_calls[0]["file_trust_mode"] is True
+    assert fake_service.apply_calls[0]["locale"] == "en"
     assert interaction.response.deferred == [{"ephemeral": True}]
     assert interaction.followup.messages[0]["content"] == "apply-ok"
 
@@ -312,3 +334,27 @@ def test_handle_apply_uses_overridden_payload_after_guild_id_confirmation(
 
     assert len(fake_service.apply_calls) == 1
     assert fake_service.apply_calls[0]["uploaded"] == b"rewritten"
+
+
+def test_handle_export_replies_with_japanese_guild_required_message() -> None:
+    interaction = _FakeJapaneseInteraction()
+    interaction.guild = None
+    fake_bot = SimpleNamespace(service=_FakeService())
+
+    asyncio.run(
+        getattr(app_module.SchemaBot, "_handle_export")(
+            fake_bot,
+            interaction,
+            include_name=True,
+            include_permissions=True,
+            include_role_overwrites=True,
+            include_other_settings=True,
+        )
+    )
+
+    assert interaction.response.messages == [
+        {
+            "content": "このコマンドはギルド内でのみ使用できます。",
+            "ephemeral": True,
+        }
+    ]

@@ -17,6 +17,7 @@ from bot.executor import (
     execute_plan,
     execute_plan_async,
 )
+from bot.localization import SupportedLocale, t
 from bot.planner import ApplyReport, build_apply_plan
 from bot.rendering import render_apply_report, render_diff_markdown
 from bot.schema.errors import SchemaValidationError
@@ -90,23 +91,24 @@ class SchemaCommandService:
         *,
         invoker_is_admin: bool,
         fields: ExportFieldSelection | None = None,
+        locale: SupportedLocale = "en",
     ) -> ExportResponse:
-        require_guild_admin(invoker_is_admin)
+        require_guild_admin(invoker_is_admin, locale=locale)
         selection = fields or ExportFieldSelection()
         export_payload = _build_export_payload(current, selection)
         yaml_text = _dump_yaml(export_payload)
         schema_url = self._schema_url_for_version(current.version)
         if schema_url is not None:
             yaml_text = _prepend_schema_hint_comment(yaml_text, schema_url)
-        summary = (
-            f"Exported roles={len(current.roles)}, categories={len(current.categories)}, "
-            f"channels={len(current.channels)}"
+        summary = t(
+            "service.export.summary",
+            locale,
+            roles=len(current.roles),
+            categories=len(current.categories),
+            channels=len(current.channels),
         )
         if _is_filtered_export(selection):
-            summary += (
-                " (filtered fields). Omitted fields are treated as keep-current for "
-                "/schema diff and /schema apply."
-            )
+            summary += f" {t('service.export.filtered_suffix', locale)}"
         return ExportResponse(
             markdown=summary,
             file=FilePayload(
@@ -121,14 +123,15 @@ class SchemaCommandService:
         *,
         invoker_is_admin: bool,
         file_trust_mode: bool = False,
+        locale: SupportedLocale = "en",
     ) -> DiffResponse:
-        require_guild_admin(invoker_is_admin)
+        require_guild_admin(invoker_is_admin, locale=locale)
         if file_trust_mode:
             desired = parse_schema_yaml(uploaded)
         else:
             desired = parse_schema_patch_yaml(uploaded, current)
         result = diff_schemas(current, desired)
-        return DiffResponse(markdown=render_diff_markdown(result))
+        return DiffResponse(markdown=render_diff_markdown(result, locale=locale))
 
     def apply_schema_preview(
         self,
@@ -138,8 +141,9 @@ class SchemaCommandService:
         invoker_is_admin: bool,
         invoker_id: int,
         file_trust_mode: bool = False,
+        locale: SupportedLocale = "en",
     ) -> ApplyPreviewResponse:
-        require_guild_admin(invoker_is_admin)
+        require_guild_admin(invoker_is_admin, locale=locale)
         if file_trust_mode:
             desired = parse_schema_yaml(uploaded)
         else:
@@ -148,7 +152,7 @@ class SchemaCommandService:
 
         if not diff_result.changes:
             return ApplyPreviewResponse(
-                markdown="No changes detected. Nothing to apply.",
+                markdown=t("service.apply.no_changes", locale),
                 confirmation_token=None,
             )
 
@@ -159,8 +163,12 @@ class SchemaCommandService:
             diff_result=diff_result,
             apply_plan=plan,
         )
-        preview = render_diff_markdown(diff_result)
-        preview += f"\n\nConfirmation token: `{pending.token}` (valid for 10 minutes)"
+        preview = render_diff_markdown(diff_result, locale=locale)
+        preview += "\n\n" + t(
+            "service.apply.confirmation_token",
+            locale,
+            token=pending.token,
+        )
         return ApplyPreviewResponse(markdown=preview, confirmation_token=pending.token)
 
     def confirm_apply(
@@ -169,40 +177,43 @@ class SchemaCommandService:
         *,
         invoker_id: int,
         current: GuildSchema,
+        locale: SupportedLocale = "en",
     ) -> ApplyExecutionResponse:
         try:
             pending = self._session_store.consume(token, invoker_id)
         except SessionNotFoundError:
             return ApplyExecutionResponse(
-                markdown="Confirmation session not found. Please rerun /schema apply.",
+                markdown=t("service.apply.session_not_found", locale),
                 backup_file=None,
                 report=None,
             )
         except SessionExpiredError:
             return ApplyExecutionResponse(
-                markdown="Confirmation expired. Please rerun /schema apply.",
+                markdown=t("service.apply.session_expired", locale),
                 backup_file=None,
                 report=None,
             )
         except SessionForbiddenError:
             return ApplyExecutionResponse(
-                markdown="Only the original invoker can confirm this apply.",
+                markdown=t("service.apply.session_forbidden", locale),
                 backup_file=None,
                 report=None,
             )
         except SessionError as exc:
             return ApplyExecutionResponse(
-                markdown=str(exc), backup_file=None, report=None
+                markdown=t("service.apply.session_error", locale, error=str(exc)),
+                backup_file=None,
+                report=None,
             )
 
-        ensure_invoker_only(invoker_id, pending.invoker_id)
+        ensure_invoker_only(invoker_id, pending.invoker_id, locale=locale)
 
         backup = schema_to_yaml(current).encode("utf-8")
         executor = self._executor_factory()
         report = execute_plan(
             plan=pending.apply_plan, backup_file=backup, executor=executor
         )
-        markdown = render_apply_report(report)
+        markdown = render_apply_report(report, locale=locale)
         return ApplyExecutionResponse(
             markdown=markdown,
             backup_file=FilePayload(
@@ -218,39 +229,42 @@ class SchemaCommandService:
         invoker_id: int,
         current: GuildSchema,
         executor: AsyncOperationExecutor,
+        locale: SupportedLocale = "en",
     ) -> ApplyExecutionResponse:
         try:
             pending = self._session_store.consume(token, invoker_id)
         except SessionNotFoundError:
             return ApplyExecutionResponse(
-                markdown="Confirmation session not found. Please rerun /schema apply.",
+                markdown=t("service.apply.session_not_found", locale),
                 backup_file=None,
                 report=None,
             )
         except SessionExpiredError:
             return ApplyExecutionResponse(
-                markdown="Confirmation expired. Please rerun /schema apply.",
+                markdown=t("service.apply.session_expired", locale),
                 backup_file=None,
                 report=None,
             )
         except SessionForbiddenError:
             return ApplyExecutionResponse(
-                markdown="Only the original invoker can confirm this apply.",
+                markdown=t("service.apply.session_forbidden", locale),
                 backup_file=None,
                 report=None,
             )
         except SessionError as exc:
             return ApplyExecutionResponse(
-                markdown=str(exc), backup_file=None, report=None
+                markdown=t("service.apply.session_error", locale, error=str(exc)),
+                backup_file=None,
+                report=None,
             )
 
-        ensure_invoker_only(invoker_id, pending.invoker_id)
+        ensure_invoker_only(invoker_id, pending.invoker_id, locale=locale)
 
         backup = schema_to_yaml(current).encode("utf-8")
         report = await execute_plan_async(
             plan=pending.apply_plan, backup_file=backup, executor=executor
         )
-        markdown = render_apply_report(report)
+        markdown = render_apply_report(report, locale=locale)
         return ApplyExecutionResponse(
             markdown=markdown,
             backup_file=FilePayload(

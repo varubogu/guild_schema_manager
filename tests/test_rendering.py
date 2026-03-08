@@ -30,3 +30,15 @@ def test_render_apply_report_includes_skipped_section() -> None:
     assert "### Failed" in markdown
     assert "### Skipped" in markdown
     assert "manual cleanup" in markdown
+
+
+def test_render_apply_report_localizes_headings_for_japanese() -> None:
+    report = ApplyReport(
+        backup_file=b"backup",
+        failed=[],
+        skipped=[],
+    )
+
+    markdown = render_apply_report(report, locale="ja")
+
+    assert "## 適用結果" in markdown
