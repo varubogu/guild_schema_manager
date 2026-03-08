@@ -41,8 +41,9 @@
 出力:
 - YAML 添付 (`guild-schema.yaml`)。
 - 必要に応じて短い Markdown 要約。
-- `SCHEMA_REPO_OWNER` と `SCHEMA_REPO_NAME` が設定されている場合は、YAML先頭にスキーマヒントコメントを付与:
-  - `# yaml-language-server: $schema=https://<owner>.github.io/<repo>/schema/v<version>/schema.json`
+- `SCHEMA_HINT_URL_TEMPLATE` が設定されている場合は、YAML先頭にスキーマヒントコメントを付与:
+  - `# yaml-language-server: $schema=<解決後URL>`
+  - `SCHEMA_HINT_URL_TEMPLATE` 内の `{version}` はスキーマバージョンに置換される。
 - いずれかの出力オプションを無効化した場合、出力はフィルタ済みビューとなる。`/schema diff` と `/schema apply` では未指定セクション/項目を現状維持として扱う。
 
 必要な Bot 権限:

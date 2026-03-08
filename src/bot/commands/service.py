@@ -77,13 +77,11 @@ class SchemaCommandService:
         session_store: InMemorySessionStore,
         executor_factory: Callable[[], OperationExecutor],
         *,
-        schema_repo_owner: str | None = None,
-        schema_repo_name: str | None = None,
+        schema_hint_url_template: str | None = None,
     ) -> None:
         self._session_store = session_store
         self._executor_factory = executor_factory
-        self._schema_repo_owner = schema_repo_owner
-        self._schema_repo_name = schema_repo_name
+        self._schema_hint_url_template = schema_hint_url_template
 
     def export_schema(
         self,
@@ -274,12 +272,9 @@ class SchemaCommandService:
         )
 
     def _schema_url_for_version(self, version: int) -> str | None:
-        if self._schema_repo_owner is None or self._schema_repo_name is None:
+        if self._schema_hint_url_template is None:
             return None
-        return (
-            f"https://{self._schema_repo_owner}.github.io/"
-            f"{self._schema_repo_name}/schema/v{version}/schema.json"
-        )
+        return self._schema_hint_url_template.replace("{version}", str(version))
 
 
 def _prepend_schema_hint_comment(yaml_text: str, schema_url: str) -> str:

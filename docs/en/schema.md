@@ -96,5 +96,5 @@ Apply planner must respect:
 - Versioned path: `/schema/v1/schema.json`
 - Latest alias: `/schema/latest/schema.json`
 - Recommended YAML header:
-  - `# yaml-language-server: $schema=https://<owner>.github.io/<repo>/schema/v1/schema.json`
+  - `# yaml-language-server: $schema=https://example.com/schema/v1/schema.json`
 - Cross-reference constraints (for example duplicate explicit IDs and overwrite target existence) are still validated by bot runtime validation.

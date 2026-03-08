@@ -41,8 +41,9 @@ Field behavior:
 Output:
 - YAML attachment (`guild-schema.yaml`).
 - Optional short Markdown summary.
-- If `SCHEMA_REPO_OWNER` and `SCHEMA_REPO_NAME` are set, prepend YAML schema hint comment:
-  - `# yaml-language-server: $schema=https://<owner>.github.io/<repo>/schema/v<version>/schema.json`
+- If `SCHEMA_HINT_URL_TEMPLATE` is set, prepend YAML schema hint comment:
+  - `# yaml-language-server: $schema=<resolved URL>`
+  - `{version}` in `SCHEMA_HINT_URL_TEMPLATE` is replaced with schema version.
 - If any export field option is disabled, the output is a filtered view. For `/schema diff` and `/schema apply`, omitted sections/fields are treated as keep-current.
 
 Required bot permissions:

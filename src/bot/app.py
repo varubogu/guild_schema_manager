@@ -309,8 +309,7 @@ class SchemaBot(discord.Client):
         self.service = SchemaCommandService(
             session_store=session_store,
             executor_factory=NoopExecutor,
-            schema_repo_owner=settings.schema_repo_owner,
-            schema_repo_name=settings.schema_repo_name,
+            schema_hint_url_template=settings.schema_hint_url_template,
         )
 
     @log_async_lifecycle(logger, "event.setup_hook")

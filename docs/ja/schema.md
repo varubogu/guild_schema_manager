@@ -96,5 +96,5 @@ channels:
 - バージョン固定パス: `/schema/v1/schema.json`
 - 最新エイリアス: `/schema/latest/schema.json`
 - 推奨 YAML ヘッダー:
-  - `# yaml-language-server: $schema=https://<owner>.github.io/<repo>/schema/v1/schema.json`
+  - `# yaml-language-server: $schema=https://example.com/schema/v1/schema.json`
 - 重複明示 ID や overwrite 参照先存在チェックなどの相互参照制約は、引き続き Bot の実行時検証でも判定する。

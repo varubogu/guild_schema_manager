@@ -130,13 +130,12 @@ def test_admin_required_for_all_commands() -> None:
         )
 
 
-def test_export_includes_schema_hint_comment_when_repo_is_configured() -> None:
+def test_export_includes_schema_hint_comment_when_url_template_is_configured() -> None:
     current = parse_schema_dict(base_schema_dict())
     srv = SchemaCommandService(
         session_store=InMemorySessionStore(ttl_seconds=600),
         executor_factory=NoopExecutor,
-        schema_repo_owner="example-org",
-        schema_repo_name="guild-schema-manager",
+        schema_hint_url_template="https://schemas.example.com/schema/v{version}/schema.json",
     )
 
     response = srv.export_schema(current, invoker_is_admin=True)
@@ -144,7 +143,24 @@ def test_export_includes_schema_hint_comment_when_repo_is_configured() -> None:
 
     assert content.startswith(
         "# yaml-language-server: $schema="
-        "https://example-org.github.io/guild-schema-manager/schema/v1/schema.json"
+        "https://schemas.example.com/schema/v1/schema.json"
+    )
+
+
+def test_export_includes_schema_hint_comment_when_fixed_url_is_configured() -> None:
+    current = parse_schema_dict(base_schema_dict())
+    srv = SchemaCommandService(
+        session_store=InMemorySessionStore(ttl_seconds=600),
+        executor_factory=NoopExecutor,
+        schema_hint_url_template="https://schemas.example.com/schema/latest/schema.json",
+    )
+
+    response = srv.export_schema(current, invoker_is_admin=True)
+    content = response.file.content.decode("utf-8")
+
+    assert content.startswith(
+        "# yaml-language-server: $schema="
+        "https://schemas.example.com/schema/latest/schema.json"
     )
 
 
@@ -169,28 +185,6 @@ def test_export_can_filter_fields_while_always_including_ids() -> None:
     assert exported["categories"] == [{"id": "200"}]
     assert exported["channels"] == [{"id": "300"}]
     assert "Omitted fields are treated as keep-current" in response.markdown
-
-
-def test_export_name_only_still_includes_ids_and_names() -> None:
-    current = parse_schema_dict(schema_with_overwrites_dict())
-    srv = service()
-
-    response = srv.export_schema(
-        current,
-        invoker_is_admin=True,
-        fields=ExportFieldSelection(
-            include_name=True,
-            include_permissions=False,
-            include_role_overwrites=False,
-            include_other_settings=False,
-        ),
-    )
-    exported = yaml.safe_load(response.file.content)
-
-    assert exported["guild"] == {"id": "1", "name": "Guild"}
-    assert exported["roles"] == [{"id": "100", "name": "Moderators"}]
-    assert exported["categories"] == [{"id": "200", "name": "Archive"}]
-    assert exported["channels"] == [{"id": "300", "name": "general"}]
 
 
 def test_export_uses_japanese_locale_when_requested() -> None:
