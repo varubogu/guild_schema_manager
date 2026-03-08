@@ -180,6 +180,8 @@ class ConfirmApplyView(discord.ui.View):
             )
             return
 
+        await interaction.response.defer(ephemeral=True, thinking=True)
+
         try:
             snapshot = build_snapshot_from_guild(interaction.guild)
             response = await self._service.confirm_apply_async(
@@ -195,10 +197,7 @@ class ConfirmApplyView(discord.ui.View):
                 interaction.user.id,
             )
             message = "Apply execution failed due to an unexpected error."
-            if interaction.response.is_done():
-                await interaction.followup.send(message, ephemeral=True)
-            else:
-                await interaction.response.send_message(message, ephemeral=True)
+            await interaction.followup.send(message, ephemeral=True)
             return
 
         files: list[discord.File] = []
@@ -210,14 +209,7 @@ class ConfirmApplyView(discord.ui.View):
                 )
             )
 
-        if interaction.response.is_done():
-            await interaction.followup.send(
-                response.markdown, files=files, ephemeral=True
-            )
-        else:
-            await interaction.response.send_message(
-                response.markdown, files=files, ephemeral=True
-            )
+        await interaction.followup.send(response.markdown, files=files, ephemeral=True)
 
         if response.report is not None and response.report.failed:
             logger.error(
@@ -345,6 +337,8 @@ class SchemaBot(discord.Client):
             )
             return
 
+        await interaction.response.defer(ephemeral=True)
+
         is_admin = member_is_guild_admin(interaction.user)
         try:
             snapshot = build_snapshot_from_guild(interaction.guild)
@@ -365,15 +359,13 @@ class SchemaBot(discord.Client):
                 interaction.user.id,
                 exc,
             )
-            await interaction.response.send_message(str(exc), ephemeral=True)
+            await interaction.followup.send(str(exc), ephemeral=True)
             return
 
         file = discord.File(
             fp=io.BytesIO(response.file.content), filename=response.file.filename
         )
-        await interaction.response.send_message(
-            response.markdown, file=file, ephemeral=True
-        )
+        await interaction.followup.send(response.markdown, file=file, ephemeral=True)
 
     @log_async_lifecycle(
         logger,
@@ -393,6 +385,8 @@ class SchemaBot(discord.Client):
             )
             return
 
+        await interaction.response.defer(ephemeral=True)
+
         is_admin = member_is_guild_admin(interaction.user)
         try:
             uploaded = await file.read()
@@ -410,7 +404,7 @@ class SchemaBot(discord.Client):
                 interaction.user.id,
                 exc,
             )
-            await interaction.response.send_message(str(exc), ephemeral=True)
+            await interaction.followup.send(str(exc), ephemeral=True)
             return
         except Exception as exc:  # noqa: BLE001
             logger.exception(
@@ -419,12 +413,10 @@ class SchemaBot(discord.Client):
                 interaction.user.id,
                 file.filename,
             )
-            await interaction.response.send_message(
-                f"Validation error: {exc}", ephemeral=True
-            )
+            await interaction.followup.send(f"Validation error: {exc}", ephemeral=True)
             return
 
-        await interaction.response.send_message(response.markdown, ephemeral=True)
+        await interaction.followup.send(response.markdown, ephemeral=True)
 
     @log_async_lifecycle(
         logger,
@@ -444,6 +436,8 @@ class SchemaBot(discord.Client):
             )
             return
 
+        await interaction.response.defer(ephemeral=True)
+
         is_admin = member_is_guild_admin(interaction.user)
         try:
             uploaded = await file.read()
@@ -462,7 +456,7 @@ class SchemaBot(discord.Client):
                 interaction.user.id,
                 exc,
             )
-            await interaction.response.send_message(str(exc), ephemeral=True)
+            await interaction.followup.send(str(exc), ephemeral=True)
             return
         except Exception as exc:  # noqa: BLE001
             logger.exception(
@@ -471,13 +465,11 @@ class SchemaBot(discord.Client):
                 interaction.user.id,
                 file.filename,
             )
-            await interaction.response.send_message(
-                f"Validation error: {exc}", ephemeral=True
-            )
+            await interaction.followup.send(f"Validation error: {exc}", ephemeral=True)
             return
 
         if response.confirmation_token is None:
-            await interaction.response.send_message(response.markdown, ephemeral=True)
+            await interaction.followup.send(response.markdown, ephemeral=True)
             return
 
         view = ConfirmApplyView(
@@ -485,9 +477,7 @@ class SchemaBot(discord.Client):
             response.confirmation_token,
             timeout=float(self.settings.confirm_ttl_seconds),
         )
-        await interaction.response.send_message(
-            response.markdown, view=view, ephemeral=True
-        )
+        await interaction.followup.send(response.markdown, view=view, ephemeral=True)
 
 
 def create_client(settings: Settings) -> SchemaBot:

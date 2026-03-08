@@ -7,11 +7,33 @@ from typing import Any
 import bot.app as app_module
 
 
+def _always_admin(user: object) -> bool:
+    _ = user
+    return True
+
+
+def _snapshot(guild: object) -> str:
+    _ = guild
+    return "snapshot"
+
+
 class _FakeResponse:
     def __init__(self) -> None:
         self.messages: list[dict[str, object]] = []
+        self.deferred: list[dict[str, object]] = []
 
     async def send_message(self, content: str, **kwargs: object) -> None:
+        self.messages.append({"content": content, **kwargs})
+
+    async def defer(self, **kwargs: object) -> None:
+        self.deferred.append(dict(kwargs))
+
+
+class _FakeFollowup:
+    def __init__(self) -> None:
+        self.messages: list[dict[str, object]] = []
+
+    async def send(self, content: str, **kwargs: object) -> None:
         self.messages.append({"content": content, **kwargs})
 
 
@@ -20,6 +42,7 @@ class _FakeInteraction:
         self.guild = SimpleNamespace(id=123)
         self.user = SimpleNamespace(id=456)
         self.response = _FakeResponse()
+        self.followup = _FakeFollowup()
 
 
 class _FakeAttachment:
@@ -33,8 +56,28 @@ class _FakeAttachment:
 
 class _FakeService:
     def __init__(self) -> None:
+        self.export_calls: list[dict[str, object]] = []
         self.diff_calls: list[dict[str, object]] = []
         self.apply_calls: list[dict[str, object]] = []
+
+    def export_schema(
+        self,
+        current: object,
+        *,
+        invoker_is_admin: bool,
+        fields: object | None = None,
+    ) -> object:
+        self.export_calls.append(
+            {
+                "current": current,
+                "invoker_is_admin": invoker_is_admin,
+                "fields": fields,
+            }
+        )
+        return SimpleNamespace(
+            markdown="export-ok",
+            file=SimpleNamespace(filename="guild-schema.yaml", content=b"schema"),
+        )
 
     def diff_schema(
         self,
@@ -75,6 +118,36 @@ class _FakeService:
         return SimpleNamespace(markdown="apply-ok", confirmation_token=None)
 
 
+def test_handle_export_defers_and_uses_followup(
+    monkeypatch: Any,
+) -> None:
+    fake_service = _FakeService()
+    fake_bot = SimpleNamespace(service=fake_service)
+    interaction = _FakeInteraction()
+
+    monkeypatch.setattr(app_module, "member_is_guild_admin", _always_admin)
+    monkeypatch.setattr(
+        app_module,
+        "build_snapshot_from_guild",
+        _snapshot,
+    )
+
+    asyncio.run(
+        getattr(app_module.SchemaBot, "_handle_export")(
+            fake_bot,
+            interaction,
+            include_name=True,
+            include_permissions=True,
+            include_role_overwrites=True,
+            include_other_settings=True,
+        )
+    )
+
+    assert len(fake_service.export_calls) == 1
+    assert interaction.response.deferred == [{"ephemeral": True}]
+    assert interaction.followup.messages[0]["content"] == "export-ok"
+
+
 def test_handle_diff_passes_file_trust_mode_to_service(
     monkeypatch: Any,
 ) -> None:
@@ -83,15 +156,15 @@ def test_handle_diff_passes_file_trust_mode_to_service(
     interaction = _FakeInteraction()
     attachment = _FakeAttachment(b"test")
 
-    monkeypatch.setattr(app_module, "member_is_guild_admin", lambda user: True)
+    monkeypatch.setattr(app_module, "member_is_guild_admin", _always_admin)
     monkeypatch.setattr(
         app_module,
         "build_snapshot_from_guild",
-        lambda guild: "snapshot",
+        _snapshot,
     )
 
     asyncio.run(
-        app_module.SchemaBot._handle_diff(
+        getattr(app_module.SchemaBot, "_handle_diff")(
             fake_bot,
             interaction,
             attachment,
@@ -101,7 +174,8 @@ def test_handle_diff_passes_file_trust_mode_to_service(
 
     assert len(fake_service.diff_calls) == 1
     assert fake_service.diff_calls[0]["file_trust_mode"] is True
-    assert interaction.response.messages[0]["content"] == "diff-ok"
+    assert interaction.response.deferred == [{"ephemeral": True}]
+    assert interaction.followup.messages[0]["content"] == "diff-ok"
 
 
 def test_handle_apply_passes_file_trust_mode_to_service(
@@ -112,15 +186,15 @@ def test_handle_apply_passes_file_trust_mode_to_service(
     interaction = _FakeInteraction()
     attachment = _FakeAttachment(b"test")
 
-    monkeypatch.setattr(app_module, "member_is_guild_admin", lambda user: True)
+    monkeypatch.setattr(app_module, "member_is_guild_admin", _always_admin)
     monkeypatch.setattr(
         app_module,
         "build_snapshot_from_guild",
-        lambda guild: "snapshot",
+        _snapshot,
     )
 
     asyncio.run(
-        app_module.SchemaBot._handle_apply(
+        getattr(app_module.SchemaBot, "_handle_apply")(
             fake_bot,
             interaction,
             attachment,
@@ -130,4 +204,5 @@ def test_handle_apply_passes_file_trust_mode_to_service(
 
     assert len(fake_service.apply_calls) == 1
     assert fake_service.apply_calls[0]["file_trust_mode"] is True
-    assert interaction.response.messages[0]["content"] == "apply-ok"
+    assert interaction.response.deferred == [{"ephemeral": True}]
+    assert interaction.followup.messages[0]["content"] == "apply-ok"
