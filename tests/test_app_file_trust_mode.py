@@ -202,8 +202,49 @@ def test_handle_export_defers_and_uses_followup(
 
     assert len(fake_service.export_calls) == 1
     assert fake_service.export_calls[0]["locale"] == "en"
+    fields = fake_service.export_calls[0]["fields"]
+    assert getattr(fields, "include_name") is True
+    assert getattr(fields, "include_permissions") is True
+    assert getattr(fields, "include_role_overwrites") is True
+    assert getattr(fields, "include_other_settings") is True
     assert interaction.response.deferred == [{"ephemeral": True}]
     assert interaction.followup.messages[0]["content"] == "export-ok"
+
+
+def test_handle_export_treats_none_options_as_enabled_defaults(
+    monkeypatch: Any,
+) -> None:
+    fake_service = _FakeService()
+    fake_bot = SimpleNamespace(
+        service=fake_service,
+        _maybe_confirm_guild_id_override=_passthrough_confirmation,
+    )
+    interaction = _FakeInteraction()
+
+    monkeypatch.setattr(app_module, "member_is_guild_admin", _always_admin)
+    monkeypatch.setattr(
+        app_module,
+        "build_snapshot_from_guild",
+        _snapshot,
+    )
+
+    asyncio.run(
+        getattr(app_module.SchemaBot, "_handle_export")(
+            fake_bot,
+            interaction,
+            include_name=None,
+            include_permissions=None,
+            include_role_overwrites=None,
+            include_other_settings=None,
+        )
+    )
+
+    assert len(fake_service.export_calls) == 1
+    fields = fake_service.export_calls[0]["fields"]
+    assert getattr(fields, "include_name") is True
+    assert getattr(fields, "include_permissions") is True
+    assert getattr(fields, "include_role_overwrites") is True
+    assert getattr(fields, "include_other_settings") is True
 
 
 def test_handle_diff_passes_file_trust_mode_to_service(

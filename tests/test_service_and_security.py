@@ -171,6 +171,28 @@ def test_export_can_filter_fields_while_always_including_ids() -> None:
     assert "Omitted fields are treated as keep-current" in response.markdown
 
 
+def test_export_name_only_still_includes_ids_and_names() -> None:
+    current = parse_schema_dict(schema_with_overwrites_dict())
+    srv = service()
+
+    response = srv.export_schema(
+        current,
+        invoker_is_admin=True,
+        fields=ExportFieldSelection(
+            include_name=True,
+            include_permissions=False,
+            include_role_overwrites=False,
+            include_other_settings=False,
+        ),
+    )
+    exported = yaml.safe_load(response.file.content)
+
+    assert exported["guild"] == {"id": "1", "name": "Guild"}
+    assert exported["roles"] == [{"id": "100", "name": "Moderators"}]
+    assert exported["categories"] == [{"id": "200", "name": "Archive"}]
+    assert exported["channels"] == [{"id": "300", "name": "general"}]
+
+
 def test_export_uses_japanese_locale_when_requested() -> None:
     current = parse_schema_dict(base_schema_dict())
     srv = service()
