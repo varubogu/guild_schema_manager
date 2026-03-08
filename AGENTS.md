@@ -36,6 +36,15 @@ Build and maintain a Discord Server Schema Manager Bot that can export, diff, an
 - Testing: `pytest`.
 - Production packaging: Docker.
 
+## Required Final Checks
+- Every implementation task must run these commands before completion:
+  1. `UV_CACHE_DIR=/tmp/uv-cache uv run --with pyright pyright`
+  2. `UV_CACHE_DIR=/tmp/uv-cache uv run ruff check`
+  3. `UV_CACHE_DIR=/tmp/uv-cache uv run ruff format`
+  4. `UV_CACHE_DIR=/tmp/uv-cache uv run pytest -q`
+- Report the result of each command in the final response.
+- If any check fails, do not claim completion; include failure details and remaining actions.
+
 ## Suggested Module Boundaries
 - `src/bot/commands/`: slash command handlers.
 - `src/bot/schema/`: YAML model and validation.
