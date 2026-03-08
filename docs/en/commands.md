@@ -19,12 +19,25 @@ Purpose: export current guild structure to schema YAML.
 
 Input:
 - No attachment input.
+- Optional boolean parameters:
+  - `include_name` (default: `true`)
+  - `include_permissions` (default: `true`)
+  - `include_role_overwrites` (default: `true`)
+  - `include_other_settings` (default: `true`)
+
+Field behavior:
+- `id` is always exported.
+- `name` is exported only when `include_name=true`.
+- Role `permissions` are exported only when `include_permissions=true`.
+- Category/channel role-target overwrites are exported only when `include_role_overwrites=true`.
+- Member-target overwrites and remaining attributes (`type`, `position`, `topic`, `hoist`, etc.) are exported only when `include_other_settings=true`.
 
 Output:
 - YAML attachment (`guild-schema.yaml`).
 - Optional short Markdown summary.
 - If `SCHEMA_REPO_OWNER` and `SCHEMA_REPO_NAME` are set, prepend YAML schema hint comment:
   - `# yaml-language-server: $schema=https://<owner>.github.io/<repo>/schema/v<version>/schema.json`
+- If any export field option is disabled, the output is a filtered view and may fail schema validation for `/schema diff` and `/schema apply`.
 
 Required bot permissions:
 - `View Channels`

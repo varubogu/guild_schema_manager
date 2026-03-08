@@ -19,12 +19,25 @@
 
 入力:
 - 添付入力なし。
+- 任意の boolean パラメータ:
+  - `include_name`（既定: `true`）
+  - `include_permissions`（既定: `true`）
+  - `include_role_overwrites`（既定: `true`）
+  - `include_other_settings`（既定: `true`）
+
+フィールド出力ルール:
+- `id` は常に出力する。
+- `name` は `include_name=true` の場合のみ出力する。
+- ロール `permissions` は `include_permissions=true` の場合のみ出力する。
+- カテゴリ/チャンネルの role 対象 overwrite は `include_role_overwrites=true` の場合のみ出力する。
+- member 対象 overwrite と、それ以外の属性（`type`、`position`、`topic`、`hoist` など）は `include_other_settings=true` の場合のみ出力する。
 
 出力:
 - YAML 添付 (`guild-schema.yaml`)。
 - 必要に応じて短い Markdown 要約。
 - `SCHEMA_REPO_OWNER` と `SCHEMA_REPO_NAME` が設定されている場合は、YAML先頭にスキーマヒントコメントを付与:
   - `# yaml-language-server: $schema=https://<owner>.github.io/<repo>/schema/v<version>/schema.json`
+- いずれかの出力オプションを無効化した場合、出力はフィルタ済みビューとなり、`/schema diff` や `/schema apply` でのスキーマ検証に失敗する可能性がある。
 
 必要な Bot 権限:
 - `View Channels`

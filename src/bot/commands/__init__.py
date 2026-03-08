@@ -2,6 +2,7 @@ from .service import (
     ApplyExecutionResponse,
     ApplyPreviewResponse,
     DiffResponse,
+    ExportFieldSelection,
     ExportResponse,
     FilePayload,
     SchemaCommandService,
@@ -10,6 +11,7 @@ from .service import (
 __all__ = [
     "SchemaCommandService",
     "ExportResponse",
+    "ExportFieldSelection",
     "DiffResponse",
     "ApplyPreviewResponse",
     "ApplyExecutionResponse",

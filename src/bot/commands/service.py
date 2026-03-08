@@ -1,7 +1,14 @@
 from __future__ import annotations
 
+import json
+from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Callable
+
+try:
+    import yaml
+except ModuleNotFoundError:  # pragma: no cover - fallback for minimal runtime
+    yaml = None
 
 from bot.diff import DiffValidationError, diff_schemas
 from bot.executor import (
@@ -13,7 +20,7 @@ from bot.executor import (
 from bot.planner import ApplyReport, build_apply_plan
 from bot.rendering import render_apply_report, render_diff_markdown
 from bot.schema.errors import SchemaValidationError
-from bot.schema.models import GuildSchema
+from bot.schema.models import GuildSchema, PermissionOverwrite
 from bot.schema.parser import parse_schema_yaml, schema_to_yaml
 from bot.security import ensure_invoker_only, require_guild_admin
 from bot.session_store import (
@@ -40,6 +47,14 @@ class ExportResponse:
 @dataclass(slots=True)
 class DiffResponse:
     markdown: str
+
+
+@dataclass(slots=True, frozen=True)
+class ExportFieldSelection:
+    include_name: bool = True
+    include_permissions: bool = True
+    include_role_overwrites: bool = True
+    include_other_settings: bool = True
 
 
 @dataclass(slots=True)
@@ -70,10 +85,16 @@ class SchemaCommandService:
         self._schema_repo_name = schema_repo_name
 
     def export_schema(
-        self, current: GuildSchema, *, invoker_is_admin: bool
+        self,
+        current: GuildSchema,
+        *,
+        invoker_is_admin: bool,
+        fields: ExportFieldSelection | None = None,
     ) -> ExportResponse:
         require_guild_admin(invoker_is_admin)
-        yaml_text = schema_to_yaml(current)
+        selection = fields or ExportFieldSelection()
+        export_payload = _build_export_payload(current, selection)
+        yaml_text = _dump_yaml(export_payload)
         schema_url = self._schema_url_for_version(current.version)
         if schema_url is not None:
             yaml_text = _prepend_schema_hint_comment(yaml_text, schema_url)
@@ -81,6 +102,11 @@ class SchemaCommandService:
             f"Exported roles={len(current.roles)}, categories={len(current.categories)}, "
             f"channels={len(current.channels)}"
         )
+        if _is_filtered_export(selection):
+            summary += (
+                " (filtered fields). Note: filtered exports may fail validation when "
+                "used with /schema diff or /schema apply."
+            )
         return ExportResponse(
             markdown=summary,
             file=FilePayload(
@@ -237,6 +263,124 @@ class SchemaCommandService:
 def _prepend_schema_hint_comment(yaml_text: str, schema_url: str) -> str:
     hint = f"# yaml-language-server: $schema={schema_url}"
     return f"{hint}\n\n{yaml_text}"
+
+
+def _is_filtered_export(selection: ExportFieldSelection) -> bool:
+    return not (
+        selection.include_name
+        and selection.include_permissions
+        and selection.include_role_overwrites
+        and selection.include_other_settings
+    )
+
+
+def _dump_yaml(payload: dict[str, object]) -> str:
+    if yaml is not None:
+        return yaml.safe_dump(payload, sort_keys=False, allow_unicode=True)
+    return json.dumps(payload, indent=2, ensure_ascii=False)
+
+
+def _build_export_payload(
+    schema: GuildSchema,
+    selection: ExportFieldSelection,
+) -> dict[str, object]:
+    guild_payload: dict[str, object] = {"id": schema.guild.id}
+    if selection.include_name:
+        guild_payload["name"] = schema.guild.name
+
+    roles_payload: list[dict[str, object]] = []
+    for role in schema.roles:
+        role_payload: dict[str, object] = {"id": _export_id(role.id)}
+        if selection.include_name:
+            role_payload["name"] = role.name
+        if selection.include_permissions:
+            role_payload["permissions"] = role.permissions
+        if selection.include_other_settings:
+            role_payload["color"] = role.color
+            role_payload["hoist"] = role.hoist
+            role_payload["mentionable"] = role.mentionable
+            role_payload["position"] = role.position
+        roles_payload.append(role_payload)
+
+    categories_payload: list[dict[str, object]] = []
+    for category in schema.categories:
+        category_payload: dict[str, object] = {"id": _export_id(category.id)}
+        if selection.include_name:
+            category_payload["name"] = category.name
+        if selection.include_role_overwrites or selection.include_other_settings:
+            category_payload["overwrites"] = _export_overwrites(
+                category.overwrites,
+                include_role_targets=selection.include_role_overwrites,
+                include_member_targets=selection.include_other_settings,
+            )
+        if selection.include_other_settings:
+            category_payload["position"] = category.position
+        categories_payload.append(category_payload)
+
+    channels_payload: list[dict[str, object]] = []
+    for channel in schema.channels:
+        channel_payload: dict[str, object] = {"id": _export_id(channel.id)}
+        if selection.include_name:
+            channel_payload["name"] = channel.name
+        if selection.include_role_overwrites or selection.include_other_settings:
+            channel_payload["overwrites"] = _export_overwrites(
+                channel.overwrites,
+                include_role_targets=selection.include_role_overwrites,
+                include_member_targets=selection.include_other_settings,
+            )
+        if selection.include_other_settings:
+            channel_payload["type"] = channel.type
+            if channel.parent_id is not None:
+                channel_payload["parent_id"] = channel.parent_id
+            if channel.parent_name is not None:
+                channel_payload["parent_name"] = channel.parent_name
+            channel_payload["position"] = channel.position
+            if channel.topic is not None:
+                channel_payload["topic"] = channel.topic
+            channel_payload["nsfw"] = channel.nsfw
+            channel_payload["slowmode_delay"] = channel.slowmode_delay
+        channels_payload.append(channel_payload)
+
+    return {
+        "version": schema.version,
+        "guild": guild_payload,
+        "roles": roles_payload,
+        "categories": categories_payload,
+        "channels": channels_payload,
+    }
+
+
+def _export_id(raw_id: str | None) -> str:
+    return raw_id or ""
+
+
+def _export_overwrites(
+    overwrites: Sequence[PermissionOverwrite],
+    *,
+    include_role_targets: bool,
+    include_member_targets: bool,
+) -> list[dict[str, object]]:
+    exported_overwrites: list[dict[str, object]] = []
+    for overwrite in overwrites:
+        target = getattr(overwrite, "target", None)
+        target_type = getattr(target, "type", None)
+        if target_type == "role" and not include_role_targets:
+            continue
+        if target_type == "member" and not include_member_targets:
+            continue
+        if target_type not in {"role", "member"}:
+            continue
+        exported_overwrites.append(
+            {
+                "target": {
+                    "type": str(target_type),
+                    "id": str(getattr(target, "id", "")),
+                },
+                "allow": list(getattr(overwrite, "allow", [])),
+                "deny": list(getattr(overwrite, "deny", [])),
+            }
+        )
+    return exported_overwrites
 
 
 def parse_uploaded_schema(uploaded: bytes) -> GuildSchema:

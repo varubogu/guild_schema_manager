@@ -5,8 +5,9 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import pytest
+import yaml
 
-from bot.commands import SchemaCommandService
+from bot.commands import ExportFieldSelection, SchemaCommandService
 from bot.executor import OperationExecutor
 from bot.executor.noop import NoopExecutor
 from bot.planner.models import ApplyOperation
@@ -56,6 +57,54 @@ def service(
     )
 
 
+def schema_with_overwrites_dict() -> dict[str, Any]:
+    payload = base_schema_dict()
+    payload["categories"] = [
+        {
+            "id": "200",
+            "name": "Archive",
+            "position": 3,
+            "overwrites": [
+                {
+                    "target": {"type": "role", "id": "100"},
+                    "allow": ["view_channel"],
+                    "deny": ["send_messages"],
+                },
+                {
+                    "target": {"type": "member", "id": "999"},
+                    "allow": [],
+                    "deny": ["view_channel"],
+                },
+            ],
+        }
+    ]
+    payload["channels"] = [
+        {
+            "id": "300",
+            "name": "general",
+            "type": "text",
+            "parent_id": "200",
+            "position": 1,
+            "topic": "hello",
+            "nsfw": False,
+            "slowmode_delay": 5,
+            "overwrites": [
+                {
+                    "target": {"type": "role", "id": "100"},
+                    "allow": ["send_messages"],
+                    "deny": [],
+                },
+                {
+                    "target": {"type": "member", "id": "888"},
+                    "allow": [],
+                    "deny": ["send_messages"],
+                },
+            ],
+        }
+    ]
+    return payload
+
+
 def test_admin_required_for_all_commands() -> None:
     current = parse_schema_dict(base_schema_dict())
     uploaded = schema_to_yaml(current).encode("utf-8")
@@ -92,6 +141,82 @@ def test_export_includes_schema_hint_comment_when_repo_is_configured() -> None:
         "# yaml-language-server: $schema="
         "https://example-org.github.io/guild-schema-manager/schema/v1/schema.json"
     )
+
+
+def test_export_can_filter_fields_while_always_including_ids() -> None:
+    current = parse_schema_dict(schema_with_overwrites_dict())
+    srv = service()
+
+    response = srv.export_schema(
+        current,
+        invoker_is_admin=True,
+        fields=ExportFieldSelection(
+            include_name=False,
+            include_permissions=False,
+            include_role_overwrites=False,
+            include_other_settings=False,
+        ),
+    )
+    exported = yaml.safe_load(response.file.content)
+
+    assert exported["guild"] == {"id": "1"}
+    assert exported["roles"] == [{"id": "100"}]
+    assert exported["categories"] == [{"id": "200"}]
+    assert exported["channels"] == [{"id": "300"}]
+    assert "filtered exports may fail validation" in response.markdown
+
+
+def test_export_default_includes_role_and_member_overwrites() -> None:
+    current = parse_schema_dict(schema_with_overwrites_dict())
+    srv = service()
+
+    response = srv.export_schema(current, invoker_is_admin=True)
+    exported = yaml.safe_load(response.file.content)
+
+    category_overwrites = exported["categories"][0]["overwrites"]
+    channel_overwrites = exported["channels"][0]["overwrites"]
+    assert {item["target"]["type"] for item in category_overwrites} == {
+        "role",
+        "member",
+    }
+    assert {item["target"]["type"] for item in channel_overwrites} == {
+        "role",
+        "member",
+    }
+
+
+def test_export_role_overwrites_option_filters_to_role_targets_only() -> None:
+    current = parse_schema_dict(schema_with_overwrites_dict())
+    srv = service()
+
+    response = srv.export_schema(
+        current,
+        invoker_is_admin=True,
+        fields=ExportFieldSelection(
+            include_name=False,
+            include_permissions=False,
+            include_role_overwrites=True,
+            include_other_settings=False,
+        ),
+    )
+    exported = yaml.safe_load(response.file.content)
+
+    category_overwrites = exported["categories"][0]["overwrites"]
+    channel_overwrites = exported["channels"][0]["overwrites"]
+    assert category_overwrites == [
+        {
+            "target": {"type": "role", "id": "100"},
+            "allow": ["view_channel"],
+            "deny": ["send_messages"],
+        }
+    ]
+    assert channel_overwrites == [
+        {
+            "target": {"type": "role", "id": "100"},
+            "allow": ["send_messages"],
+            "deny": [],
+        }
+    ]
 
 
 def test_invoker_only_confirmation_guard() -> None:

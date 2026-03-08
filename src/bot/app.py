@@ -6,7 +6,7 @@ import logging
 import discord
 from discord import app_commands
 
-from bot.commands import SchemaCommandService
+from bot.commands import ExportFieldSelection, SchemaCommandService
 from bot.config import Settings
 from bot.executor.discord_executor import DiscordGuildExecutor
 from bot.executor.noop import NoopExecutor
@@ -44,6 +44,22 @@ SCHEMA_FILE_DESCRIPTION = _localized(
     "Schema YAML file",
     "schema.argument.file.description",
 )
+EXPORT_INCLUDE_NAME_DESCRIPTION = _localized(
+    "Include names",
+    "schema.argument.export.include_name.description",
+)
+EXPORT_INCLUDE_PERMISSIONS_DESCRIPTION = _localized(
+    "Include role permissions",
+    "schema.argument.export.include_permissions.description",
+)
+EXPORT_INCLUDE_ROLE_OVERWRITES_DESCRIPTION = _localized(
+    "Include role overwrite permissions",
+    "schema.argument.export.include_role_overwrites.description",
+)
+EXPORT_INCLUDE_OTHER_SETTINGS_DESCRIPTION = _localized(
+    "Include other settings",
+    "schema.argument.export.include_other_settings.description",
+)
 
 JA_TRANSLATIONS: dict[str, str] = {
     "schema.group.description": "ギルドスキーマ操作",
@@ -51,6 +67,10 @@ JA_TRANSLATIONS: dict[str, str] = {
     "schema.command.diff.description": "アップロードYAMLと現在のギルド構成を比較",
     "schema.command.apply.description": "アップロードYAMLをプレビューして適用",
     "schema.argument.file.description": "スキーマYAMLファイル",
+    "schema.argument.export.include_name.description": "名前を含める",
+    "schema.argument.export.include_permissions.description": "ロールのpermissionsを含める",
+    "schema.argument.export.include_role_overwrites.description": "ロール上書き権限を含める",
+    "schema.argument.export.include_other_settings.description": "その他設定を含める",
 }
 
 
@@ -90,12 +110,22 @@ def _confirm_context(
     return _interaction_context(interaction)
 
 
-def _command_context(
+def _export_command_context(
     self: "SchemaBot",
     interaction: discord.Interaction,
+    include_name: bool,
+    include_permissions: bool,
+    include_role_overwrites: bool,
+    include_other_settings: bool,
 ) -> dict[str, object]:
     _ = self
-    return _interaction_context(interaction)
+    return {
+        **_interaction_context(interaction),
+        "include_name": include_name,
+        "include_permissions": include_permissions,
+        "include_role_overwrites": include_role_overwrites,
+        "include_other_settings": include_other_settings,
+    }
 
 
 def _file_command_context(
@@ -226,10 +256,26 @@ class SchemaBot(discord.Client):
             name="export",
             description=EXPORT_DESCRIPTION,
         )
+        @app_commands.describe(
+            include_name=EXPORT_INCLUDE_NAME_DESCRIPTION,
+            include_permissions=EXPORT_INCLUDE_PERMISSIONS_DESCRIPTION,
+            include_role_overwrites=EXPORT_INCLUDE_ROLE_OVERWRITES_DESCRIPTION,
+            include_other_settings=EXPORT_INCLUDE_OTHER_SETTINGS_DESCRIPTION,
+        )
         async def export(  # pyright: ignore[reportUnusedFunction]
             interaction: discord.Interaction,
+            include_name: bool = True,
+            include_permissions: bool = True,
+            include_role_overwrites: bool = True,
+            include_other_settings: bool = True,
         ) -> None:
-            await self._handle_export(interaction)
+            await self._handle_export(
+                interaction,
+                include_name=include_name,
+                include_permissions=include_permissions,
+                include_role_overwrites=include_role_overwrites,
+                include_other_settings=include_other_settings,
+            )
 
         @schema_group.command(
             name="diff",
@@ -267,9 +313,16 @@ class SchemaBot(discord.Client):
     @log_async_lifecycle(
         logger,
         "command.schema.export",
-        _command_context,
+        _export_command_context,
     )
-    async def _handle_export(self, interaction: discord.Interaction) -> None:
+    async def _handle_export(
+        self,
+        interaction: discord.Interaction,
+        include_name: bool,
+        include_permissions: bool,
+        include_role_overwrites: bool,
+        include_other_settings: bool,
+    ) -> None:
         if interaction.guild is None:
             logger.warning("command.schema.export rejected reason=guild_required")
             await interaction.response.send_message(
@@ -280,7 +333,16 @@ class SchemaBot(discord.Client):
         is_admin = member_is_guild_admin(interaction.user)
         try:
             snapshot = build_snapshot_from_guild(interaction.guild)
-            response = self.service.export_schema(snapshot, invoker_is_admin=is_admin)
+            response = self.service.export_schema(
+                snapshot,
+                invoker_is_admin=is_admin,
+                fields=ExportFieldSelection(
+                    include_name=include_name,
+                    include_permissions=include_permissions,
+                    include_role_overwrites=include_role_overwrites,
+                    include_other_settings=include_other_settings,
+                ),
+            )
         except AuthorizationError as exc:
             logger.warning(
                 "command.schema.export authorization_failed guild_id=%s user_id=%s error=%s",
