@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from collections.abc import Sequence
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Callable, cast
 
 try:
@@ -110,7 +111,8 @@ class SchemaCommandService:
         return ExportResponse(
             markdown=summary,
             file=FilePayload(
-                filename="guild-schema.yaml", content=yaml_text.encode("utf-8")
+                filename=_build_export_filename(current),
+                content=yaml_text.encode("utf-8"),
             ),
         )
 
@@ -280,6 +282,11 @@ class SchemaCommandService:
 def _prepend_schema_hint_comment(yaml_text: str, schema_url: str) -> str:
     hint = f"# yaml-language-server: $schema={schema_url}"
     return f"{hint}\n\n{yaml_text}"
+
+
+def _build_export_filename(schema: GuildSchema) -> str:
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    return f"{schema.guild.name}-{timestamp}.yaml"
 
 
 def _is_filtered_export(selection: ExportFieldSelection) -> bool:

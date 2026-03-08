@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from datetime import datetime, timedelta, timezone
+import re
 from typing import Any
 
 import pytest
@@ -162,6 +163,15 @@ def test_export_includes_schema_hint_comment_when_fixed_url_is_configured() -> N
         "# yaml-language-server: $schema="
         "https://schemas.example.com/schema/latest/schema.json"
     )
+
+
+def test_export_filename_uses_guild_name_and_timestamp_format() -> None:
+    current = parse_schema_dict(base_schema_dict())
+    srv = service()
+
+    response = srv.export_schema(current, invoker_is_admin=True)
+
+    assert re.fullmatch(r"Guild-\d{8}_\d{6}\.yaml", response.file.filename)
 
 
 def test_export_can_filter_fields_while_always_including_ids() -> None:
