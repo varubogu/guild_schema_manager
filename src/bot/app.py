@@ -518,6 +518,11 @@ class SchemaBot(discord.Client):
         is_admin = member_is_guild_admin(interaction.user)
         try:
             uploaded = await file.read()
+            uploaded_guild_id = extract_uploaded_guild_id(uploaded)
+            prefer_name_matching = (
+                uploaded_guild_id is not None
+                and uploaded_guild_id != str(interaction.guild.id)
+            )
             uploaded = await self._maybe_confirm_guild_id_override(
                 interaction,
                 uploaded=uploaded,
@@ -532,6 +537,7 @@ class SchemaBot(discord.Client):
                 uploaded,
                 invoker_is_admin=is_admin,
                 file_trust_mode=file_trust_mode,
+                prefer_name_matching=prefer_name_matching,
                 locale=locale,
             )
         except AuthorizationError as exc:
@@ -583,6 +589,11 @@ class SchemaBot(discord.Client):
         is_admin = member_is_guild_admin(interaction.user)
         try:
             uploaded = await file.read()
+            uploaded_guild_id = extract_uploaded_guild_id(uploaded)
+            prefer_name_matching = (
+                uploaded_guild_id is not None
+                and uploaded_guild_id != str(interaction.guild.id)
+            )
             uploaded = await self._maybe_confirm_guild_id_override(
                 interaction,
                 uploaded=uploaded,
@@ -598,6 +609,7 @@ class SchemaBot(discord.Client):
                 invoker_is_admin=is_admin,
                 invoker_id=interaction.user.id,
                 file_trust_mode=file_trust_mode,
+                prefer_name_matching=prefer_name_matching,
                 locale=locale,
             )
         except AuthorizationError as exc:

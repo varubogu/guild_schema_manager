@@ -39,7 +39,7 @@
 - member 対象 overwrite と、それ以外の属性（`type`、`position`、`topic`、`hoist` など）は `include_other_settings=true` の場合のみ出力する。
 
 出力:
-- YAML 添付 (`guild-schema.yaml`)。
+- YAML 添付 (`{guild.name}-{yyyyMMdd_HHmmss}.yaml`)。
 - 必要に応じて短い Markdown 要約。
 - `SCHEMA_HINT_URL_TEMPLATE` が設定されている場合は、YAML先頭にスキーマヒントコメントを付与:
   - `# yaml-language-server: $schema=<解決後URL>`
@@ -96,6 +96,7 @@
 - `file_trust_mode=false`: roles/categories/channels を未記載にしても削除差分は生成しない。
 - `file_trust_mode=true`: 完全スキーマで未記載のリソースは削除差分を生成する。
 - アップロード内 `guild.id` の不一致確認がキャンセルまたはタイムアウトした場合、apply は続行しない。
+- アップロード内 `guild.id` の不一致確認を承認した場合、そのリクエストの roles/categories/channels 同一判定は name 優先で処理する。
 - 確認後のチャンネル削除はハード削除せず `GSM-Dustbox` へ移動する。
 - カテゴリ削除は子チャンネルを `GSM-Dustbox` へ移動し、カテゴリ本体は手動削除前提でアーカイブする。
 - `GSM-Dustbox` がなければ管理者のみ閲覧可能な権限で自動作成する。

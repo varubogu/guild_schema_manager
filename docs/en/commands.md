@@ -39,7 +39,7 @@ Field behavior:
 - Member-target overwrites and remaining attributes (`type`, `position`, `topic`, `hoist`, etc.) are exported only when `include_other_settings=true`.
 
 Output:
-- YAML attachment (`guild-schema.yaml`).
+- YAML attachment (`{guild.name}-{yyyyMMdd_HHmmss}.yaml`).
 - Optional short Markdown summary.
 - If `SCHEMA_HINT_URL_TEMPLATE` is set, prepend YAML schema hint comment:
   - `# yaml-language-server: $schema=<resolved URL>`
@@ -96,6 +96,7 @@ Execution rules:
 - `file_trust_mode=false`: omitting roles/categories/channels from upload does not generate delete actions.
 - `file_trust_mode=true`: omission in uploaded full schema generates delete actions.
 - If uploaded `guild.id` differs and the override confirmation is cancelled or timed out, apply does not proceed.
+- If uploaded `guild.id` differs and override confirmation is approved, roles/categories/channels matching is handled in name-first mode for that request.
 - After confirmation, channel delete targets are moved to `GSM-Dustbox` instead of hard-deleted.
 - For category delete targets, child channels are moved to `GSM-Dustbox` and the category is archived for manual cleanup.
 - `GSM-Dustbox` is created with admin-only visibility if it does not exist.

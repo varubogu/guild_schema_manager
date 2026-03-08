@@ -92,3 +92,33 @@ def test_patch_yaml_keeps_omitted_sections_and_fields() -> None:
     assert len(merged.channels) == 1
     assert merged.channels[0].topic == "patched"
     assert merged.channels[0].name == "general"
+
+
+def test_patch_yaml_can_prefer_name_matching_when_requested() -> None:
+    current = parse_schema_dict(base_payload())
+    uploaded = yaml.safe_dump(
+        {
+            "roles": [
+                {
+                    "id": "999",
+                    "name": "Mod",
+                    "permissions": ["manage_channels", "kick_members"],
+                }
+            ]
+        },
+        sort_keys=False,
+    ).encode("utf-8")
+
+    default_merged = parse_schema_patch_yaml(uploaded, current)
+    assert len(default_merged.roles) == 2
+
+    name_priority_merged = parse_schema_patch_yaml(
+        uploaded,
+        current,
+        prefer_name_matching=True,
+    )
+    assert len(name_priority_merged.roles) == 1
+    assert name_priority_merged.roles[0].permissions == [
+        "manage_channels",
+        "kick_members",
+    ]

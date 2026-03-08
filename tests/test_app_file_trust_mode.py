@@ -136,6 +136,7 @@ class _FakeService:
         *,
         invoker_is_admin: bool,
         file_trust_mode: bool = False,
+        prefer_name_matching: bool = False,
         locale: str = "en",
     ) -> object:
         self.diff_calls.append(
@@ -144,6 +145,7 @@ class _FakeService:
                 "uploaded": uploaded,
                 "invoker_is_admin": invoker_is_admin,
                 "file_trust_mode": file_trust_mode,
+                "prefer_name_matching": prefer_name_matching,
                 "locale": locale,
             }
         )
@@ -157,6 +159,7 @@ class _FakeService:
         invoker_is_admin: bool,
         invoker_id: int,
         file_trust_mode: bool = False,
+        prefer_name_matching: bool = False,
         locale: str = "en",
     ) -> object:
         self.apply_calls.append(
@@ -166,6 +169,7 @@ class _FakeService:
                 "invoker_is_admin": invoker_is_admin,
                 "invoker_id": invoker_id,
                 "file_trust_mode": file_trust_mode,
+                "prefer_name_matching": prefer_name_matching,
                 "locale": locale,
             }
         )
@@ -235,6 +239,7 @@ def test_handle_diff_passes_file_trust_mode_to_service(
 
     assert len(fake_service.diff_calls) == 1
     assert fake_service.diff_calls[0]["file_trust_mode"] is True
+    assert fake_service.diff_calls[0]["prefer_name_matching"] is False
     assert fake_service.diff_calls[0]["locale"] == "en"
     assert interaction.response.deferred == [{"ephemeral": True}]
     assert interaction.followup.messages[0]["content"] == "diff-ok"
@@ -269,6 +274,7 @@ def test_handle_apply_passes_file_trust_mode_to_service(
 
     assert len(fake_service.apply_calls) == 1
     assert fake_service.apply_calls[0]["file_trust_mode"] is True
+    assert fake_service.apply_calls[0]["prefer_name_matching"] is False
     assert fake_service.apply_calls[0]["locale"] == "en"
     assert interaction.response.deferred == [{"ephemeral": True}]
     assert interaction.followup.messages[0]["content"] == "apply-ok"
@@ -314,7 +320,7 @@ def test_handle_apply_uses_overridden_payload_after_guild_id_confirmation(
         _maybe_confirm_guild_id_override=_override_confirmation,
     )
     interaction = _FakeInteraction()
-    attachment = _FakeAttachment(b"original")
+    attachment = _FakeAttachment(b"guild:\n  id: '999'\n")
 
     monkeypatch.setattr(app_module, "member_is_guild_admin", _always_admin)
     monkeypatch.setattr(
@@ -334,6 +340,39 @@ def test_handle_apply_uses_overridden_payload_after_guild_id_confirmation(
 
     assert len(fake_service.apply_calls) == 1
     assert fake_service.apply_calls[0]["uploaded"] == b"rewritten"
+    assert fake_service.apply_calls[0]["prefer_name_matching"] is True
+
+
+def test_handle_diff_enables_name_priority_after_guild_id_confirmation(
+    monkeypatch: Any,
+) -> None:
+    fake_service = _FakeService()
+    fake_bot = SimpleNamespace(
+        service=fake_service,
+        _maybe_confirm_guild_id_override=_override_confirmation,
+    )
+    interaction = _FakeInteraction()
+    attachment = _FakeAttachment(b"guild:\n  id: '999'\n")
+
+    monkeypatch.setattr(app_module, "member_is_guild_admin", _always_admin)
+    monkeypatch.setattr(
+        app_module,
+        "build_snapshot_from_guild",
+        _snapshot,
+    )
+
+    asyncio.run(
+        getattr(app_module.SchemaBot, "_handle_diff")(
+            fake_bot,
+            interaction,
+            attachment,
+            file_trust_mode=False,
+        )
+    )
+
+    assert len(fake_service.diff_calls) == 1
+    assert fake_service.diff_calls[0]["uploaded"] == b"rewritten"
+    assert fake_service.diff_calls[0]["prefer_name_matching"] is True
 
 
 def test_handle_export_replies_with_japanese_guild_required_message() -> None:

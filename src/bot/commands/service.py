@@ -123,14 +123,23 @@ class SchemaCommandService:
         *,
         invoker_is_admin: bool,
         file_trust_mode: bool = False,
+        prefer_name_matching: bool = False,
         locale: SupportedLocale = "en",
     ) -> DiffResponse:
         require_guild_admin(invoker_is_admin, locale=locale)
         if file_trust_mode:
             desired = parse_schema_yaml(uploaded)
         else:
-            desired = parse_schema_patch_yaml(uploaded, current)
-        result = diff_schemas(current, desired)
+            desired = parse_schema_patch_yaml(
+                uploaded,
+                current,
+                prefer_name_matching=prefer_name_matching,
+            )
+        result = diff_schemas(
+            current,
+            desired,
+            prefer_name_matching=prefer_name_matching,
+        )
         return DiffResponse(markdown=render_diff_markdown(result, locale=locale))
 
     def apply_schema_preview(
@@ -141,14 +150,23 @@ class SchemaCommandService:
         invoker_is_admin: bool,
         invoker_id: int,
         file_trust_mode: bool = False,
+        prefer_name_matching: bool = False,
         locale: SupportedLocale = "en",
     ) -> ApplyPreviewResponse:
         require_guild_admin(invoker_is_admin, locale=locale)
         if file_trust_mode:
             desired = parse_schema_yaml(uploaded)
         else:
-            desired = parse_schema_patch_yaml(uploaded, current)
-        diff_result = diff_schemas(current, desired)
+            desired = parse_schema_patch_yaml(
+                uploaded,
+                current,
+                prefer_name_matching=prefer_name_matching,
+            )
+        diff_result = diff_schemas(
+            current,
+            desired,
+            prefer_name_matching=prefer_name_matching,
+        )
 
         if not diff_result.changes:
             return ApplyPreviewResponse(
@@ -412,12 +430,17 @@ def parse_uploaded_schema(
     *,
     current: GuildSchema | None = None,
     file_trust_mode: bool = False,
+    prefer_name_matching: bool = False,
 ) -> GuildSchema:
     try:
         if file_trust_mode:
             return parse_schema_yaml(uploaded)
         if current is not None:
-            return parse_schema_patch_yaml(uploaded, current)
+            return parse_schema_patch_yaml(
+                uploaded,
+                current,
+                prefer_name_matching=prefer_name_matching,
+            )
         return parse_schema_yaml(uploaded)
     except (SchemaValidationError, DiffValidationError) as exc:
         raise ValueError(str(exc)) from exc

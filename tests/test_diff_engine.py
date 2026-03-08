@@ -61,6 +61,39 @@ def test_id_first_rename_detected_as_update() -> None:
     assert updates[0].after == {"name": "New Moderators"}
 
 
+def test_name_priority_matches_by_name_when_ids_differ() -> None:
+    current = schema(base_payload())
+
+    desired_payload = base_payload()
+    desired_payload["roles"][0]["id"] = "999"
+    desired_payload["roles"][0]["permissions"] = ["manage_channels", "mute_members"]
+    desired = schema(desired_payload)
+
+    default_result = diff_schemas(current, desired)
+    assert any(
+        change.action == "Create" and change.target_type == "role"
+        for change in default_result.changes
+    )
+    assert any(
+        change.action == "Delete" and change.target_type == "role"
+        for change in default_result.changes
+    )
+
+    name_priority_result = diff_schemas(
+        current,
+        desired,
+        prefer_name_matching=True,
+    )
+    updates = [
+        c
+        for c in name_priority_result.changes
+        if c.action == "Update" and c.target_type == "role"
+    ]
+    assert len(updates) == 1
+    assert name_priority_result.summary["Create"] == 0
+    assert name_priority_result.summary["Delete"] == 0
+
+
 def test_name_only_unique_match_updates_existing() -> None:
     payload = base_payload()
     payload["roles"] = [{"name": "Moderators", "permissions": ["manage_channels"]}]

@@ -29,6 +29,7 @@
 14. Unsupported channel type fails validation.
 15. Partial Discord API failures are separated into `failed[]` while successful operations remain in `applied[]`.
 16. Bot restart invalidates pending confirmation plans.
+17. When `guild.id` mismatch continuation is approved, matching switches to name-first for roles/categories/channels.
 
 ## Mocking Strategy
 - Mock discord.py HTTP/guild objects at service boundary.

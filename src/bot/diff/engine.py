@@ -12,7 +12,12 @@ from .models import DiffChange, DiffResult
 T = TypeVar("T", RoleSchema, CategorySchema, ChannelSchema)
 
 
-def diff_schemas(current: GuildSchema, desired: GuildSchema) -> DiffResult:
+def diff_schemas(
+    current: GuildSchema,
+    desired: GuildSchema,
+    *,
+    prefer_name_matching: bool = False,
+) -> DiffResult:
     changes: list[DiffChange] = []
     changes.extend(
         _diff_section(
@@ -20,6 +25,7 @@ def diff_schemas(current: GuildSchema, desired: GuildSchema) -> DiffResult:
             desired_items=desired.roles,
             target_type="role",
             compare_fn=_compare_role,
+            prefer_name_matching=prefer_name_matching,
         )
     )
     changes.extend(
@@ -28,6 +34,7 @@ def diff_schemas(current: GuildSchema, desired: GuildSchema) -> DiffResult:
             desired_items=desired.categories,
             target_type="category",
             compare_fn=_compare_category,
+            prefer_name_matching=prefer_name_matching,
         )
     )
     changes.extend(
@@ -35,7 +42,12 @@ def diff_schemas(current: GuildSchema, desired: GuildSchema) -> DiffResult:
             current_items=current.channels,
             desired_items=desired.channels,
             target_type="channel",
-            compare_fn=_compare_channel,
+            compare_fn=lambda current_item, desired_item: _compare_channel(
+                current_item,
+                desired_item,
+                prefer_name_matching=prefer_name_matching,
+            ),
+            prefer_name_matching=prefer_name_matching,
         )
     )
 
@@ -55,9 +67,14 @@ def _diff_section(
     desired_items: list[T],
     target_type: str,
     compare_fn: Callable[[T, T], list[DiffChange]],
+    *,
+    prefer_name_matching: bool,
 ) -> list[DiffChange]:
     matched_pairs, creates, deletes = _match_items(
-        current_items, desired_items, target_type
+        current_items,
+        desired_items,
+        target_type,
+        prefer_name_matching=prefer_name_matching,
     )
     changes: list[DiffChange] = []
 
@@ -68,7 +85,11 @@ def _diff_section(
                 target_type=target_type,  # type: ignore[arg-type]
                 target_id=desired_item.id,
                 before=None,
-                after=_safe_payload(desired_item),
+                after=_create_payload_for_change(
+                    desired_item,
+                    target_type=target_type,
+                    prefer_name_matching=prefer_name_matching,
+                ),
                 risk="low",
             )
         )
@@ -95,6 +116,8 @@ def _match_items(
     current_items: list[T],
     desired_items: list[T],
     target_type: str,
+    *,
+    prefer_name_matching: bool,
 ) -> tuple[list[tuple[T, T]], list[T], list[T]]:
     unmatched_current = set(range(len(current_items)))
 
@@ -112,22 +135,33 @@ def _match_items(
     for desired_item in desired_items:
         matched_idx: int | None = None
 
-        if desired_item.id:
-            candidate = by_id.get(desired_item.id)
-            if candidate is not None and candidate in unmatched_current:
-                matched_idx = candidate
-        else:
-            candidates = [
-                idx
-                for idx in by_name.get(desired_item.name, [])
-                if idx in unmatched_current
-            ]
-            if len(candidates) > 1:
-                raise DiffValidationError(
-                    f"name-only duplicate match in {target_type}: '{desired_item.name}'"
+        if prefer_name_matching:
+            matched_idx = _find_name_match_index(
+                desired_item=desired_item,
+                by_name=by_name,
+                unmatched_current=unmatched_current,
+                target_type=target_type,
+            )
+            if matched_idx is None:
+                matched_idx = _find_id_match_index(
+                    desired_item=desired_item,
+                    by_id=by_id,
+                    unmatched_current=unmatched_current,
                 )
-            if len(candidates) == 1:
-                matched_idx = candidates[0]
+        else:
+            if desired_item.id:
+                matched_idx = _find_id_match_index(
+                    desired_item=desired_item,
+                    by_id=by_id,
+                    unmatched_current=unmatched_current,
+                )
+            else:
+                matched_idx = _find_name_match_index(
+                    desired_item=desired_item,
+                    by_name=by_name,
+                    unmatched_current=unmatched_current,
+                    target_type=target_type,
+                )
 
         if matched_idx is None:
             creates.append(desired_item)
@@ -138,6 +172,39 @@ def _match_items(
 
     deletes = [current_items[idx] for idx in sorted(unmatched_current)]
     return matched, creates, deletes
+
+
+def _find_id_match_index(
+    *,
+    desired_item: T,
+    by_id: dict[str, int],
+    unmatched_current: set[int],
+) -> int | None:
+    if not desired_item.id:
+        return None
+    candidate = by_id.get(desired_item.id)
+    if candidate is None or candidate not in unmatched_current:
+        return None
+    return candidate
+
+
+def _find_name_match_index(
+    *,
+    desired_item: T,
+    by_name: defaultdict[str, list[int]],
+    unmatched_current: set[int],
+    target_type: str,
+) -> int | None:
+    candidates = [
+        idx for idx in by_name.get(desired_item.name, []) if idx in unmatched_current
+    ]
+    if len(candidates) > 1:
+        raise DiffValidationError(
+            f"name-only duplicate match in {target_type}: '{desired_item.name}'"
+        )
+    if len(candidates) == 1:
+        return candidates[0]
+    return None
 
 
 def _compare_role(current: RoleSchema, desired: RoleSchema) -> list[DiffChange]:
@@ -216,7 +283,10 @@ def _compare_category(
 
 
 def _compare_channel(
-    current: ChannelSchema, desired: ChannelSchema
+    current: ChannelSchema,
+    desired: ChannelSchema,
+    *,
+    prefer_name_matching: bool,
 ) -> list[DiffChange]:
     changes: list[DiffChange] = []
     target_id = current.id or desired.id
@@ -238,8 +308,14 @@ def _compare_channel(
             )
         )
 
-    current_parent = current.parent_id or current.parent_name
-    desired_parent = desired.parent_id or desired.parent_name
+    current_parent = _parent_reference(
+        current,
+        prefer_name_matching=prefer_name_matching,
+    )
+    desired_parent = _parent_reference(
+        desired,
+        prefer_name_matching=prefer_name_matching,
+    )
     if current_parent != desired_parent:
         changes.append(
             DiffChange(
@@ -270,6 +346,32 @@ def _compare_channel(
         )
     )
     return changes
+
+
+def _parent_reference(
+    channel: ChannelSchema,
+    *,
+    prefer_name_matching: bool,
+) -> str | None:
+    if prefer_name_matching:
+        return channel.parent_name or channel.parent_id
+    return channel.parent_id or channel.parent_name
+
+
+def _create_payload_for_change(
+    item: T,
+    *,
+    target_type: str,
+    prefer_name_matching: bool,
+) -> dict[str, Any]:
+    payload = _safe_payload(item)
+    if not prefer_name_matching:
+        return payload
+
+    payload.pop("id", None)
+    if target_type == "channel" and payload.get("parent_name") is not None:
+        payload.pop("parent_id", None)
+    return payload
 
 
 def _compare_overwrites(

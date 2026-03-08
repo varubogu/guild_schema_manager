@@ -18,7 +18,7 @@ Core goals:
 
 ## MVP Features
 - Manage `roles`, `categories`, and `channels`.
-- Support ID-based and name-based management with ID-first matching.
+- Support ID-based and name-based management (default ID-first, but name-first when guild ID mismatch continuation is explicitly approved).
 - Use slash commands only.
 - Restrict all bot command execution to guild administrators.
 - Show change preview before apply.

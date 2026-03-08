@@ -425,6 +425,38 @@ def test_diff_partial_schema_keeps_unspecified_entities() -> None:
     assert "patched-topic" in response.markdown
 
 
+def test_diff_can_prefer_name_matching_when_ids_are_foreign() -> None:
+    current = parse_schema_dict(base_schema_dict())
+    uploaded = yaml.safe_dump(
+        {
+            "roles": [
+                {
+                    "id": "999",
+                    "name": "Moderators",
+                    "permissions": ["manage_channels", "mute_members"],
+                }
+            ]
+        },
+        sort_keys=False,
+    ).encode("utf-8")
+
+    srv = service()
+
+    default_response = srv.diff_schema(current, uploaded, invoker_is_admin=True)
+    assert "Create: 1" in default_response.markdown
+    assert "Delete: 0" in default_response.markdown
+
+    name_priority_response = srv.diff_schema(
+        current,
+        uploaded,
+        invoker_is_admin=True,
+        prefer_name_matching=True,
+    )
+    assert "Update: 1" in name_priority_response.markdown
+    assert "Create: 0" in name_priority_response.markdown
+    assert "Delete: 0" in name_priority_response.markdown
+
+
 def test_diff_uses_japanese_labels_when_requested() -> None:
     current = parse_schema_dict(base_schema_dict())
     uploaded = yaml.safe_dump(

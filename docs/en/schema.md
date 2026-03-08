@@ -50,8 +50,10 @@ channels:
 ```
 
 ## Identity and Matching Rules
-- ID-first matching is mandatory.
-- If `id` exists in file, object identity is determined only by `id`.
+- Default mode uses ID-first matching.
+- If `id` exists in file, object identity is determined by `id` in default mode.
+- If uploaded `guild.id` differs from the current guild and the user explicitly continues, matching switches to name-first for roles/categories/channels.
+- In name-first mode, if a unique name match is not found and `id` exists, `id` is used as fallback.
 - `name` is treated as mutable data and can be updated.
 - If `id` is missing, fallback matching uses `name` within the same object scope.
 

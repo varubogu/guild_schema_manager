@@ -58,9 +58,18 @@ def parse_schema_yaml(raw: bytes | str) -> GuildSchema:
     return parse_schema_dict(payload)
 
 
-def parse_schema_patch_yaml(raw: bytes | str, current: GuildSchema) -> GuildSchema:
+def parse_schema_patch_yaml(
+    raw: bytes | str,
+    current: GuildSchema,
+    *,
+    prefer_name_matching: bool = False,
+) -> GuildSchema:
     patch_payload = _load_yaml_mapping(raw)
-    merged_payload = _merge_schema_patch(schema_to_dict(current), patch_payload)
+    merged_payload = _merge_schema_patch(
+        schema_to_dict(current),
+        patch_payload,
+        prefer_name_matching=prefer_name_matching,
+    )
     return parse_schema_dict(merged_payload)
 
 
@@ -84,6 +93,8 @@ def _load_yaml_mapping(raw: bytes | str) -> dict[str, object]:
 def _merge_schema_patch(
     current_payload: dict[str, object],
     patch_payload: dict[str, object],
+    *,
+    prefer_name_matching: bool,
 ) -> dict[str, object]:
     merged = dict(current_payload)
     for key, value in patch_payload.items():
@@ -95,6 +106,7 @@ def _merge_schema_patch(
                 current_payload.get(key),
                 value,
                 section=key,
+                prefer_name_matching=prefer_name_matching,
             )
             continue
         merged[key] = value
@@ -118,6 +130,7 @@ def _merge_entity_payload(
     patch_value: object,
     *,
     section: str,
+    prefer_name_matching: bool,
 ) -> object:
     if not isinstance(current_value, list) or not isinstance(patch_value, list):
         return patch_value
@@ -138,6 +151,7 @@ def _merge_entity_payload(
             section=section,
             patch_index=patch_index,
             matched_indices=matched_indices,
+            prefer_name_matching=prefer_name_matching,
         )
         if matched_index is None:
             merged_items.append(patch_item_dict)
@@ -157,6 +171,53 @@ def _merge_entity_payload(
 
 
 def _find_match_index(
+    *,
+    current_items: list[object],
+    patch_item: dict[str, object],
+    section: str,
+    patch_index: int,
+    matched_indices: set[int],
+    prefer_name_matching: bool,
+) -> int | None:
+    if prefer_name_matching:
+        name_match = _find_name_match_index(
+            current_items=current_items,
+            patch_item=patch_item,
+            section=section,
+            patch_index=patch_index,
+            matched_indices=matched_indices,
+        )
+        if name_match is not None:
+            return name_match
+        return _find_id_match_index(
+            current_items=current_items,
+            patch_item=patch_item,
+            section=section,
+            patch_index=patch_index,
+            matched_indices=matched_indices,
+        )
+
+    id_match = _find_id_match_index(
+        current_items=current_items,
+        patch_item=patch_item,
+        section=section,
+        patch_index=patch_index,
+        matched_indices=matched_indices,
+    )
+    if _id_only_match_required(patch_item):
+        return id_match
+    if id_match is not None:
+        return id_match
+    return _find_name_match_index(
+        current_items=current_items,
+        patch_item=patch_item,
+        section=section,
+        patch_index=patch_index,
+        matched_indices=matched_indices,
+    )
+
+
+def _find_id_match_index(
     *,
     current_items: list[object],
     patch_item: dict[str, object],
@@ -185,7 +246,17 @@ def _find_match_index(
         and not isinstance(patch_id, str)
     ):
         return None
+    return None
 
+
+def _find_name_match_index(
+    *,
+    current_items: list[object],
+    patch_item: dict[str, object],
+    section: str,
+    patch_index: int,
+    matched_indices: set[int],
+) -> int | None:
     patch_name = patch_item.get("name")
     if not isinstance(patch_name, str) or not patch_name:
         return None
@@ -213,6 +284,17 @@ def _find_match_index(
             f"{section}[{patch_index}].name",
         )
     return matched
+
+
+def _id_only_match_required(patch_item: dict[str, object]) -> bool:
+    patch_id = patch_item.get("id")
+    if isinstance(patch_id, str) and patch_id:
+        return True
+    return (
+        "id" in patch_item
+        and patch_id not in (None, "")
+        and not isinstance(patch_id, str)
+    )
 
 
 def parse_schema_dict(payload: dict[str, object]) -> GuildSchema:
