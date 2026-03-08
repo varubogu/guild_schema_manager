@@ -54,6 +54,17 @@ _SUPPORTED_CHANNEL_TYPES = {"text", "voice", "news", "stage_voice", "forum", "me
 
 
 def parse_schema_yaml(raw: bytes | str) -> GuildSchema:
+    payload = _load_yaml_mapping(raw)
+    return parse_schema_dict(payload)
+
+
+def parse_schema_patch_yaml(raw: bytes | str, current: GuildSchema) -> GuildSchema:
+    patch_payload = _load_yaml_mapping(raw)
+    merged_payload = _merge_schema_patch(schema_to_dict(current), patch_payload)
+    return parse_schema_dict(merged_payload)
+
+
+def _load_yaml_mapping(raw: bytes | str) -> dict[str, object]:
     text = raw.decode("utf-8") if isinstance(raw, bytes) else raw
     if yaml is not None:
         try:
@@ -67,7 +78,141 @@ def parse_schema_yaml(raw: bytes | str) -> GuildSchema:
             raise SchemaValidationError(f"Invalid YAML/JSON payload: {exc}") from exc
     if not isinstance(loaded, dict):
         raise SchemaValidationError("Top-level YAML must be a mapping")
-    return parse_schema_dict(cast(dict[str, object], loaded))
+    return cast(dict[str, object], loaded)
+
+
+def _merge_schema_patch(
+    current_payload: dict[str, object],
+    patch_payload: dict[str, object],
+) -> dict[str, object]:
+    merged = dict(current_payload)
+    for key, value in patch_payload.items():
+        if key == "guild":
+            merged["guild"] = _merge_guild_payload(current_payload.get("guild"), value)
+            continue
+        if key in {"roles", "categories", "channels"}:
+            merged[key] = _merge_entity_payload(
+                current_payload.get(key),
+                value,
+                section=key,
+            )
+            continue
+        merged[key] = value
+    return merged
+
+
+def _merge_guild_payload(
+    current_value: object,
+    patch_value: object,
+) -> object:
+    if not isinstance(current_value, dict) or not isinstance(patch_value, dict):
+        return patch_value
+
+    merged = dict(cast(dict[str, object], current_value))
+    merged.update(cast(dict[str, object], patch_value))
+    return merged
+
+
+def _merge_entity_payload(
+    current_value: object,
+    patch_value: object,
+    *,
+    section: str,
+) -> object:
+    if not isinstance(current_value, list) or not isinstance(patch_value, list):
+        return patch_value
+
+    current_items = cast(list[object], current_value)
+    merged_items = list(current_items)
+    matched_indices: set[int] = set()
+
+    for patch_index, patch_item in enumerate(cast(list[object], patch_value)):
+        if not isinstance(patch_item, dict):
+            merged_items.append(patch_item)
+            continue
+
+        patch_item_dict = cast(dict[str, object], patch_item)
+        matched_index = _find_match_index(
+            current_items=current_items,
+            patch_item=patch_item_dict,
+            section=section,
+            patch_index=patch_index,
+            matched_indices=matched_indices,
+        )
+        if matched_index is None:
+            merged_items.append(patch_item_dict)
+            continue
+
+        current_item = current_items[matched_index]
+        if not isinstance(current_item, dict):
+            merged_items.append(patch_item_dict)
+            continue
+
+        merged_item = dict(cast(dict[str, object], current_item))
+        merged_item.update(patch_item_dict)
+        merged_items[matched_index] = merged_item
+        matched_indices.add(matched_index)
+
+    return merged_items
+
+
+def _find_match_index(
+    *,
+    current_items: list[object],
+    patch_item: dict[str, object],
+    section: str,
+    patch_index: int,
+    matched_indices: set[int],
+) -> int | None:
+    patch_id = patch_item.get("id")
+    if isinstance(patch_id, str) and patch_id:
+        for idx, current_item in enumerate(current_items):
+            if not isinstance(current_item, dict):
+                continue
+            if cast(dict[str, object], current_item).get("id") != patch_id:
+                continue
+            if idx in matched_indices:
+                raise SchemaValidationError(
+                    f"duplicate patch entries for id '{patch_id}'",
+                    f"{section}[{patch_index}].id",
+                )
+            return idx
+        return None
+
+    if (
+        "id" in patch_item
+        and patch_id not in (None, "")
+        and not isinstance(patch_id, str)
+    ):
+        return None
+
+    patch_name = patch_item.get("name")
+    if not isinstance(patch_name, str) or not patch_name:
+        return None
+
+    all_candidates: list[int] = []
+    for idx, current_item in enumerate(current_items):
+        if not isinstance(current_item, dict):
+            continue
+        if cast(dict[str, object], current_item).get("name") == patch_name:
+            all_candidates.append(idx)
+
+    if len(all_candidates) > 1:
+        raise SchemaValidationError(
+            f"name-only duplicate match in {section}: '{patch_name}'",
+            f"{section}[{patch_index}].name",
+        )
+
+    if not all_candidates:
+        return None
+
+    matched = all_candidates[0]
+    if matched in matched_indices:
+        raise SchemaValidationError(
+            f"duplicate patch entries for name '{patch_name}'",
+            f"{section}[{patch_index}].name",
+        )
+    return matched
 
 
 def parse_schema_dict(payload: dict[str, object]) -> GuildSchema:

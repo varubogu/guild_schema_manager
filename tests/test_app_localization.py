@@ -54,3 +54,18 @@ def test_schema_command_translator_returns_none_for_unknown_key() -> None:
     )
 
     assert translated is None
+
+
+def test_schema_command_translator_supports_file_trust_mode_description() -> None:
+    translator = SchemaCommandTranslator()
+    key = "schema.argument.file_trust_mode.description"
+    localized = app_commands.locale_str(
+        "Treat uploaded file as source of truth (strict full-schema mode)",
+        **{LOCALIZATION_KEY: key},
+    )
+
+    translated = asyncio.run(
+        translator.translate(localized, discord.Locale.japanese, cast(Any, None))
+    )
+
+    assert translated == JA_TRANSLATIONS[key]

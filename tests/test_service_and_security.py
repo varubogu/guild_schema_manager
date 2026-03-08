@@ -11,7 +11,7 @@ from bot.commands import ExportFieldSelection, SchemaCommandService
 from bot.executor import OperationExecutor
 from bot.executor.noop import NoopExecutor
 from bot.planner.models import ApplyOperation
-from bot.schema import parse_schema_dict, schema_to_yaml
+from bot.schema import SchemaValidationError, parse_schema_dict, schema_to_yaml
 from bot.security import AuthorizationError
 from bot.session_store import InMemorySessionStore
 
@@ -163,7 +163,7 @@ def test_export_can_filter_fields_while_always_including_ids() -> None:
     assert exported["roles"] == [{"id": "100"}]
     assert exported["categories"] == [{"id": "200"}]
     assert exported["channels"] == [{"id": "300"}]
-    assert "filtered exports may fail validation" in response.markdown
+    assert "Omitted fields are treated as keep-current" in response.markdown
 
 
 def test_export_default_includes_role_and_member_overwrites() -> None:
@@ -221,9 +221,10 @@ def test_export_role_overwrites_option_filters_to_role_targets_only() -> None:
 
 def test_invoker_only_confirmation_guard() -> None:
     current = parse_schema_dict(base_schema_dict())
-    desired = base_schema_dict()
-    desired["roles"] = []
-    uploaded = schema_to_yaml(parse_schema_dict(desired)).encode("utf-8")
+    uploaded = yaml.safe_dump(
+        {"roles": [{"id": "100", "name": "Ops"}]},
+        sort_keys=False,
+    ).encode("utf-8")
 
     srv = service()
     preview = srv.apply_schema_preview(
@@ -242,9 +243,10 @@ def test_invoker_only_confirmation_guard() -> None:
 
 def test_backup_is_always_produced_before_apply_execution() -> None:
     current = parse_schema_dict(base_schema_dict())
-    desired = base_schema_dict()
-    desired["roles"] = []
-    uploaded = schema_to_yaml(parse_schema_dict(desired)).encode("utf-8")
+    uploaded = yaml.safe_dump(
+        {"roles": [{"id": "100", "name": "Ops"}]},
+        sort_keys=False,
+    ).encode("utf-8")
 
     srv = service(executor_factory=NoopExecutor)
     preview = srv.apply_schema_preview(
@@ -264,10 +266,24 @@ def test_backup_is_always_produced_before_apply_execution() -> None:
 
 
 def test_delete_not_executed_before_confirmation() -> None:
-    current = parse_schema_dict(base_schema_dict())
-    desired = base_schema_dict()
-    desired["roles"] = []
-    uploaded = schema_to_yaml(parse_schema_dict(desired)).encode("utf-8")
+    current = parse_schema_dict(schema_with_overwrites_dict())
+    uploaded = yaml.safe_dump(
+        {
+            "categories": [
+                {
+                    "id": "200",
+                    "overwrites": [
+                        {
+                            "target": {"type": "role", "id": "100"},
+                            "allow": ["view_channel"],
+                            "deny": ["send_messages"],
+                        }
+                    ],
+                }
+            ]
+        },
+        sort_keys=False,
+    ).encode("utf-8")
 
     executor = CountingExecutor()
     srv = SchemaCommandService(
@@ -286,11 +302,27 @@ def test_delete_not_executed_before_confirmation() -> None:
 
 
 def test_partial_failure_reporting_separates_failed_and_applied() -> None:
-    current = parse_schema_dict(base_schema_dict())
-    desired = base_schema_dict()
-    desired["roles"] = []
-    desired["categories"] = [{"id": "200", "name": "New Cat", "overwrites": []}]
-    uploaded = schema_to_yaml(parse_schema_dict(desired)).encode("utf-8")
+    current = parse_schema_dict(schema_with_overwrites_dict())
+    uploaded = yaml.safe_dump(
+        {
+            "roles": [
+                {"id": "100", "permissions": ["manage_channels", "mute_members"]}
+            ],
+            "categories": [
+                {
+                    "id": "200",
+                    "overwrites": [
+                        {
+                            "target": {"type": "role", "id": "100"},
+                            "allow": ["view_channel"],
+                            "deny": ["send_messages"],
+                        }
+                    ],
+                }
+            ],
+        },
+        sort_keys=False,
+    ).encode("utf-8")
 
     srv = service(executor_factory=FailingExecutor)
     preview = srv.apply_schema_preview(
@@ -310,9 +342,10 @@ def test_partial_failure_reporting_separates_failed_and_applied() -> None:
 
 def test_confirmation_expiry_returns_timeout_message() -> None:
     current = parse_schema_dict(base_schema_dict())
-    desired = base_schema_dict()
-    desired["roles"] = []
-    uploaded = schema_to_yaml(parse_schema_dict(desired)).encode("utf-8")
+    uploaded = yaml.safe_dump(
+        {"roles": [{"id": "100", "name": "Ops"}]},
+        sort_keys=False,
+    ).encode("utf-8")
 
     store = InMemorySessionStore(ttl_seconds=1)
     srv = SchemaCommandService(session_store=store, executor_factory=NoopExecutor)
@@ -335,3 +368,62 @@ def test_confirmation_expiry_returns_timeout_message() -> None:
         "expired" in response.markdown.lower()
         or "not found" in response.markdown.lower()
     )
+
+
+def test_diff_partial_schema_keeps_unspecified_entities() -> None:
+    current = parse_schema_dict(schema_with_overwrites_dict())
+    uploaded = yaml.safe_dump(
+        {"channels": [{"id": "300", "topic": "patched-topic"}]},
+        sort_keys=False,
+    ).encode("utf-8")
+
+    srv = service()
+    response = srv.diff_schema(current, uploaded, invoker_is_admin=True)
+
+    assert "Update: 1" in response.markdown
+    assert "Delete: 0" in response.markdown
+    assert "patched-topic" in response.markdown
+
+
+def test_diff_file_trust_mode_true_treats_omission_as_delete() -> None:
+    current = parse_schema_dict(base_schema_dict())
+    uploaded = yaml.safe_dump(
+        {
+            "version": 1,
+            "guild": {"id": "1", "name": "Guild"},
+            "roles": [],
+            "categories": [],
+            "channels": [],
+        },
+        sort_keys=False,
+    ).encode("utf-8")
+
+    srv = service()
+    response = srv.diff_schema(
+        current,
+        uploaded,
+        invoker_is_admin=True,
+        file_trust_mode=True,
+    )
+
+    assert "Delete: 1" in response.markdown
+    assert "| Delete | role | 100 |" in response.markdown
+
+
+def test_file_trust_mode_true_requires_full_schema() -> None:
+    current = parse_schema_dict(base_schema_dict())
+    uploaded = yaml.safe_dump(
+        {"roles": []},
+        sort_keys=False,
+    ).encode("utf-8")
+
+    srv = service()
+
+    with pytest.raises(SchemaValidationError):
+        srv.apply_schema_preview(
+            current,
+            uploaded,
+            invoker_is_admin=True,
+            invoker_id=10,
+            file_trust_mode=True,
+        )

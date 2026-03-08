@@ -11,8 +11,8 @@
 
 ## Public Command Interface
 1. `/schema export`
-2. `/schema diff file:<attachment>`
-3. `/schema apply file:<attachment>`
+2. `/schema diff file:<attachment> file_trust_mode:<bool=false>`
+3. `/schema apply file:<attachment> file_trust_mode:<bool=false>`
 
 ## `/schema export`
 Purpose: export current guild structure to schema YAML.
@@ -37,7 +37,7 @@ Output:
 - Optional short Markdown summary.
 - If `SCHEMA_REPO_OWNER` and `SCHEMA_REPO_NAME` are set, prepend YAML schema hint comment:
   - `# yaml-language-server: $schema=https://<owner>.github.io/<repo>/schema/v<version>/schema.json`
-- If any export field option is disabled, the output is a filtered view and may fail schema validation for `/schema diff` and `/schema apply`.
+- If any export field option is disabled, the output is a filtered view. For `/schema diff` and `/schema apply`, omitted sections/fields are treated as keep-current.
 
 Required bot permissions:
 - `View Channels`
@@ -47,6 +47,8 @@ Purpose: compare uploaded schema against current guild and display diff.
 
 Input:
 - One YAML attachment.
+- Optional boolean parameter:
+  - `file_trust_mode` (default: `false`)
 
 Output:
 - Markdown summary.
@@ -55,12 +57,16 @@ Output:
 Behavior:
 - No mutating operations.
 - Invalid schema returns validation error with field path.
+- `file_trust_mode=false`: uploaded file is merged as partial patch; omitted sections/entities/fields are kept from current guild state.
+- `file_trust_mode=true`: uploaded file is parsed as full schema source-of-truth; omitted resources become delete diffs.
 
 ## `/schema apply file:<attachment>`
 Purpose: preview and apply schema changes with confirmation.
 
 Input:
 - One YAML attachment.
+- Optional boolean parameter:
+  - `file_trust_mode` (default: `false`)
 
 Workflow:
 1. Parse and validate file.
@@ -76,6 +82,8 @@ Output:
 
 Execution rules:
 - Delete actions are never executed without confirmation.
+- `file_trust_mode=false`: omitting roles/categories/channels from upload does not generate delete actions.
+- `file_trust_mode=true`: omission in uploaded full schema generates delete actions.
 - After confirmation, channel delete targets are moved to `GSM-Dustbox` instead of hard-deleted.
 - For category delete targets, child channels are moved to `GSM-Dustbox` and the category is archived for manual cleanup.
 - `GSM-Dustbox` is created with admin-only visibility if it does not exist.

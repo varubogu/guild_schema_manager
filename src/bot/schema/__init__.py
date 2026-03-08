@@ -8,7 +8,13 @@ from .models import (
     PermissionOverwrite,
     RoleSchema,
 )
-from .parser import parse_schema_dict, parse_schema_yaml, schema_to_dict, schema_to_yaml
+from .parser import (
+    parse_schema_dict,
+    parse_schema_patch_yaml,
+    parse_schema_yaml,
+    schema_to_dict,
+    schema_to_yaml,
+)
 
 __all__ = [
     "SchemaValidationError",
@@ -20,6 +26,7 @@ __all__ = [
     "PermissionOverwrite",
     "OverwriteTarget",
     "parse_schema_yaml",
+    "parse_schema_patch_yaml",
     "parse_schema_dict",
     "schema_to_dict",
     "schema_to_yaml",

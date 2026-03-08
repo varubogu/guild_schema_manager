@@ -21,7 +21,7 @@ from bot.planner import ApplyReport, build_apply_plan
 from bot.rendering import render_apply_report, render_diff_markdown
 from bot.schema.errors import SchemaValidationError
 from bot.schema.models import GuildSchema, PermissionOverwrite
-from bot.schema.parser import parse_schema_yaml, schema_to_yaml
+from bot.schema.parser import parse_schema_patch_yaml, parse_schema_yaml, schema_to_yaml
 from bot.security import ensure_invoker_only, require_guild_admin
 from bot.session_store import (
     InMemorySessionStore,
@@ -104,8 +104,8 @@ class SchemaCommandService:
         )
         if _is_filtered_export(selection):
             summary += (
-                " (filtered fields). Note: filtered exports may fail validation when "
-                "used with /schema diff or /schema apply."
+                " (filtered fields). Omitted fields are treated as keep-current for "
+                "/schema diff and /schema apply."
             )
         return ExportResponse(
             markdown=summary,
@@ -120,9 +120,13 @@ class SchemaCommandService:
         uploaded: bytes,
         *,
         invoker_is_admin: bool,
+        file_trust_mode: bool = False,
     ) -> DiffResponse:
         require_guild_admin(invoker_is_admin)
-        desired = parse_schema_yaml(uploaded)
+        if file_trust_mode:
+            desired = parse_schema_yaml(uploaded)
+        else:
+            desired = parse_schema_patch_yaml(uploaded, current)
         result = diff_schemas(current, desired)
         return DiffResponse(markdown=render_diff_markdown(result))
 
@@ -133,9 +137,13 @@ class SchemaCommandService:
         *,
         invoker_is_admin: bool,
         invoker_id: int,
+        file_trust_mode: bool = False,
     ) -> ApplyPreviewResponse:
         require_guild_admin(invoker_is_admin)
-        desired = parse_schema_yaml(uploaded)
+        if file_trust_mode:
+            desired = parse_schema_yaml(uploaded)
+        else:
+            desired = parse_schema_patch_yaml(uploaded, current)
         diff_result = diff_schemas(current, desired)
 
         if not diff_result.changes:
@@ -383,8 +391,17 @@ def _export_overwrites(
     return exported_overwrites
 
 
-def parse_uploaded_schema(uploaded: bytes) -> GuildSchema:
+def parse_uploaded_schema(
+    uploaded: bytes,
+    *,
+    current: GuildSchema | None = None,
+    file_trust_mode: bool = False,
+) -> GuildSchema:
     try:
+        if file_trust_mode:
+            return parse_schema_yaml(uploaded)
+        if current is not None:
+            return parse_schema_patch_yaml(uploaded, current)
         return parse_schema_yaml(uploaded)
     except (SchemaValidationError, DiffValidationError) as exc:
         raise ValueError(str(exc)) from exc

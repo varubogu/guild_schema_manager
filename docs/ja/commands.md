@@ -11,8 +11,8 @@
 
 ## 公開インターフェース
 1. `/schema export`
-2. `/schema diff file:<attachment>`
-3. `/schema apply file:<attachment>`
+2. `/schema diff file:<attachment> file_trust_mode:<bool=false>`
+3. `/schema apply file:<attachment> file_trust_mode:<bool=false>`
 
 ## `/schema export`
 目的: 現在のギルド構成を YAML で出力する。
@@ -37,7 +37,7 @@
 - 必要に応じて短い Markdown 要約。
 - `SCHEMA_REPO_OWNER` と `SCHEMA_REPO_NAME` が設定されている場合は、YAML先頭にスキーマヒントコメントを付与:
   - `# yaml-language-server: $schema=https://<owner>.github.io/<repo>/schema/v<version>/schema.json`
-- いずれかの出力オプションを無効化した場合、出力はフィルタ済みビューとなり、`/schema diff` や `/schema apply` でのスキーマ検証に失敗する可能性がある。
+- いずれかの出力オプションを無効化した場合、出力はフィルタ済みビューとなる。`/schema diff` と `/schema apply` では未指定セクション/項目を現状維持として扱う。
 
 必要な Bot 権限:
 - `View Channels`
@@ -47,6 +47,8 @@
 
 入力:
 - YAML 添付 1件。
+- 任意の boolean パラメータ:
+  - `file_trust_mode`（既定: `false`）
 
 出力:
 - Markdown 要約。
@@ -55,12 +57,16 @@
 挙動:
 - 変更は実行しない。
 - 不正スキーマ時はフィールドパス付きエラーを返す。
+- `file_trust_mode=false`: アップロードを部分パッチとしてマージし、未指定セクション・未指定リソース・未指定フィールドは現状維持とする。
+- `file_trust_mode=true`: アップロードを完全スキーマとして扱い、未記載リソースは削除差分になる。
 
 ## `/schema apply file:<attachment>`
 目的: 確認付きでスキーマ変更を適用する。
 
 入力:
 - YAML 添付 1件。
+- 任意の boolean パラメータ:
+  - `file_trust_mode`（既定: `false`）
 
 フロー:
 1. 解析と検証。
@@ -76,6 +82,8 @@
 
 実行ルール:
 - 削除は確認前に実行しない。
+- `file_trust_mode=false`: roles/categories/channels を未記載にしても削除差分は生成しない。
+- `file_trust_mode=true`: 完全スキーマで未記載のリソースは削除差分を生成する。
 - 確認後のチャンネル削除はハード削除せず `GSM-Dustbox` へ移動する。
 - カテゴリ削除は子チャンネルを `GSM-Dustbox` へ移動し、カテゴリ本体は手動削除前提でアーカイブする。
 - `GSM-Dustbox` がなければ管理者のみ閲覧可能な権限で自動作成する。

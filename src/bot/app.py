@@ -44,6 +44,10 @@ SCHEMA_FILE_DESCRIPTION = _localized(
     "Schema YAML file",
     "schema.argument.file.description",
 )
+FILE_TRUST_MODE_DESCRIPTION = _localized(
+    "Treat uploaded file as source of truth (strict full-schema mode)",
+    "schema.argument.file_trust_mode.description",
+)
 EXPORT_INCLUDE_NAME_DESCRIPTION = _localized(
     "Include names",
     "schema.argument.export.include_name.description",
@@ -67,6 +71,7 @@ JA_TRANSLATIONS: dict[str, str] = {
     "schema.command.diff.description": "アップロードYAMLと現在のギルド構成を比較",
     "schema.command.apply.description": "アップロードYAMLをプレビューして適用",
     "schema.argument.file.description": "スキーマYAMLファイル",
+    "schema.argument.file_trust_mode.description": "ファイルを正として扱う（厳格フルスキーマ）",
     "schema.argument.export.include_name.description": "名前を含める",
     "schema.argument.export.include_permissions.description": "ロールのpermissionsを含める",
     "schema.argument.export.include_role_overwrites.description": "ロール上書き権限を含める",
@@ -132,11 +137,13 @@ def _file_command_context(
     self: "SchemaBot",
     interaction: discord.Interaction,
     file: discord.Attachment,
+    file_trust_mode: bool,
 ) -> dict[str, object]:
     _ = self
     return {
         **_interaction_context(interaction),
         "filename": file.filename,
+        "file_trust_mode": file_trust_mode,
     }
 
 
@@ -281,23 +288,31 @@ class SchemaBot(discord.Client):
             name="diff",
             description=DIFF_DESCRIPTION,
         )
-        @app_commands.describe(file=SCHEMA_FILE_DESCRIPTION)
+        @app_commands.describe(
+            file=SCHEMA_FILE_DESCRIPTION,
+            file_trust_mode=FILE_TRUST_MODE_DESCRIPTION,
+        )
         async def diff(  # pyright: ignore[reportUnusedFunction]
             interaction: discord.Interaction,
             file: discord.Attachment,
+            file_trust_mode: bool = False,
         ) -> None:
-            await self._handle_diff(interaction, file)
+            await self._handle_diff(interaction, file, file_trust_mode=file_trust_mode)
 
         @schema_group.command(
             name="apply",
             description=APPLY_DESCRIPTION,
         )
-        @app_commands.describe(file=SCHEMA_FILE_DESCRIPTION)
+        @app_commands.describe(
+            file=SCHEMA_FILE_DESCRIPTION,
+            file_trust_mode=FILE_TRUST_MODE_DESCRIPTION,
+        )
         async def apply(  # pyright: ignore[reportUnusedFunction]
             interaction: discord.Interaction,
             file: discord.Attachment,
+            file_trust_mode: bool = False,
         ) -> None:
-            await self._handle_apply(interaction, file)
+            await self._handle_apply(interaction, file, file_trust_mode=file_trust_mode)
 
         self.tree.add_command(schema_group)
         await self.tree.sync()
@@ -366,7 +381,10 @@ class SchemaBot(discord.Client):
         _file_command_context,
     )
     async def _handle_diff(
-        self, interaction: discord.Interaction, file: discord.Attachment
+        self,
+        interaction: discord.Interaction,
+        file: discord.Attachment,
+        file_trust_mode: bool,
     ) -> None:
         if interaction.guild is None:
             logger.warning("command.schema.diff rejected reason=guild_required")
@@ -380,7 +398,10 @@ class SchemaBot(discord.Client):
             uploaded = await file.read()
             snapshot = build_snapshot_from_guild(interaction.guild)
             response = self.service.diff_schema(
-                snapshot, uploaded, invoker_is_admin=is_admin
+                snapshot,
+                uploaded,
+                invoker_is_admin=is_admin,
+                file_trust_mode=file_trust_mode,
             )
         except AuthorizationError as exc:
             logger.warning(
@@ -411,7 +432,10 @@ class SchemaBot(discord.Client):
         _file_command_context,
     )
     async def _handle_apply(
-        self, interaction: discord.Interaction, file: discord.Attachment
+        self,
+        interaction: discord.Interaction,
+        file: discord.Attachment,
+        file_trust_mode: bool,
     ) -> None:
         if interaction.guild is None:
             logger.warning("command.schema.apply rejected reason=guild_required")
@@ -429,6 +453,7 @@ class SchemaBot(discord.Client):
                 uploaded,
                 invoker_is_admin=is_admin,
                 invoker_id=interaction.user.id,
+                file_trust_mode=file_trust_mode,
             )
         except AuthorizationError as exc:
             logger.warning(

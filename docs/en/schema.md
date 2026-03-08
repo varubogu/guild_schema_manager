@@ -60,6 +60,13 @@ channels:
 - Multiple objects with same name in scope: validation error.
 - No name match: treated as create.
 
+## Input Mode Behavior (`/schema diff`, `/schema apply`)
+- `file_trust_mode=false` (default): uploaded files may be partial and are merged as patch.
+- In patch mode, omitted sections (`roles`, `categories`, `channels`) and omitted fields are kept as current state.
+- In patch mode, omitted entities in a listed section are kept as current state (no delete-by-omission).
+- `file_trust_mode=true`: uploaded file is parsed as full schema source-of-truth.
+- In trust mode, omitted entities are interpreted as delete intent by diff.
+
 ## Managed Entities
 - Roles.
 - Categories.
@@ -80,7 +87,7 @@ Apply planner must respect:
 
 ## Validation Rules
 - Unknown top-level keys: error.
-- Missing required fields (`name`, `type` where applicable): error.
+- Missing required fields (`name`, `type` where applicable): error for full schema parsing, trust mode, and create targets in patch mode.
 - Invalid overwrite target references: error.
 - Conflicting parent references (`parent_id` and unmatched `parent_name`): error.
 - Duplicate explicit IDs in the same section: error.
