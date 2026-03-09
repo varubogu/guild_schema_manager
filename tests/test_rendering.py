@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from bot.diff.models import DiffChange, DiffResult
+from bot.diff.models import DiffChange, DiffInformationalChange, DiffResult
 from bot.planner.models import ApplyReport
 from bot.rendering import render_apply_report, render_diff_markdown
 
@@ -101,3 +101,32 @@ def test_render_diff_markdown_includes_before_after_name_columns() -> None:
 
     assert "| target_id | before_name | after_name |" in markdown
     assert "| 更新 | channel | 300 | 一般 | 一般 | 中 |" in markdown
+
+
+def test_render_diff_markdown_renders_informational_rows() -> None:
+    markdown = render_diff_markdown(
+        DiffResult(
+            summary={
+                "Create": 0,
+                "Update": 0,
+                "Delete": 0,
+                "Move": 0,
+                "Reorder": 0,
+            },
+            changes=[],
+            informational_changes=[
+                DiffInformationalChange(
+                    action="UnchangedFileUndefined",
+                    target_type="role",
+                    target_id="100",
+                    before={"name": "Moderators"},
+                    after={"name": "Moderators"},
+                    before_name="Moderators",
+                    after_name="Moderators",
+                )
+            ],
+        )
+    )
+
+    assert "No change (undefined in file)" in markdown
+    assert "| role | 100 | Moderators | Moderators | - |" in markdown

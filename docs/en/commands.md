@@ -67,6 +67,8 @@ Behavior:
 - Ambiguous name matches are treated as differences so comparison can continue.
 - Channel name matching uses parent scope + channel type + name. If still ambiguous, deterministic internal temporary ordering is used.
 - `file_trust_mode=false`: uploaded file is merged as partial patch; omitted sections/entities/fields are kept from current guild state.
+- `file_trust_mode=false`: resources existing in guild but omitted from uploaded file are shown as `No change (undefined in file)`.
+- Resources defined in both guild and uploaded file and fully equal are shown as `No change (exact match)`.
 - `file_trust_mode=true`: uploaded file is parsed as full schema source-of-truth; omitted resources become delete diffs.
 - If uploaded `guild.id` is present and differs from the current guild, the bot asks whether to overwrite it to the current guild ID before continuing.
 - If that confirmation is cancelled or times out, the command is aborted.
@@ -110,6 +112,7 @@ Execution rules:
 - Diff output model:
   - `summary`
   - `changes[]` with `action`, `target_type`, `target_id`, `before_name`, `after_name`, `before`, `after`, `risk`
+  - `informational_changes[]` with `action`, `target_type`, `target_id`, `before_name`, `after_name`, `before`, `after`
 - Apply output model:
   - `backup_file`
   - `applied[]`

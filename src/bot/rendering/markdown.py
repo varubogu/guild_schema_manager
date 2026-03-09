@@ -19,6 +19,8 @@ def render_diff_markdown(
         "Delete": t("render.action.delete", locale),
         "Move": t("render.action.move", locale),
         "Reorder": t("render.action.reorder", locale),
+        "UnchangedFileUndefined": t("render.action.unchanged_file_undefined", locale),
+        "UnchangedExact": t("render.action.unchanged_exact", locale),
     }
     target_labels = {
         "role": t("render.target_type.role", locale),
@@ -71,6 +73,16 @@ def render_diff_markdown(
         out.write(
             f"| {action} | {target_type} | {change.target_id or '-'} | "
             f"{before_name} | {after_name} | {risk} | "
+            f"`{_compact(change.before)}` | `{_compact(change.after)}` |\n"
+        )
+    for change in diff_result.informational_changes:
+        action = action_labels.get(change.action, change.action)
+        target_type = target_labels.get(change.target_type, change.target_type)
+        before_name = _display_name(change.before_name, change.before)
+        after_name = _display_name(change.after_name, change.after)
+        out.write(
+            f"| {action} | {target_type} | {change.target_id or '-'} | "
+            f"{before_name} | {after_name} | - | "
             f"`{_compact(change.before)}` | `{_compact(change.after)}` |\n"
         )
     return out.getvalue().strip()

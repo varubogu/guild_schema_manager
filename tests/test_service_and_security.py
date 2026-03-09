@@ -457,6 +457,43 @@ def test_diff_can_prefer_name_matching_when_ids_are_foreign() -> None:
     assert "Delete: 0" in name_priority_response.markdown
 
 
+def test_diff_outputs_unchanged_file_undefined_when_patch_omits_entity() -> None:
+    current = parse_schema_dict(base_schema_dict())
+    uploaded = yaml.safe_dump(
+        {},
+        sort_keys=False,
+    ).encode("utf-8")
+
+    srv = service()
+    response = srv.diff_schema(current, uploaded, invoker_is_admin=True)
+
+    assert "No change (undefined in file)" in response.markdown
+    assert "Moderators" in response.markdown
+
+
+def test_diff_outputs_unchanged_exact_when_patch_defines_identical_entity() -> None:
+    current = parse_schema_dict(base_schema_dict())
+    uploaded = yaml.safe_dump(
+        {
+            "roles": [
+                {
+                    "id": "100",
+                    "name": "Moderators",
+                    "permissions": ["manage_channels"],
+                    "position": 1,
+                }
+            ]
+        },
+        sort_keys=False,
+    ).encode("utf-8")
+
+    srv = service()
+    response = srv.diff_schema(current, uploaded, invoker_is_admin=True)
+
+    assert "No change (exact match)" in response.markdown
+    assert "Moderators" in response.markdown
+
+
 def test_diff_treats_ambiguous_channel_name_match_as_diff_not_error() -> None:
     current = parse_schema_dict(
         {
@@ -646,7 +683,7 @@ def test_apply_preview_no_changes_is_localized_for_japanese() -> None:
     )
 
     assert preview.confirmation_token is None
-    assert preview.markdown == "変更は検出されませんでした。適用対象はありません。"
+    assert "変更なし（完全一致）" in preview.markdown
 
 
 def test_file_trust_mode_true_requires_full_schema() -> None:

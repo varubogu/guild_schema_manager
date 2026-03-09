@@ -171,6 +171,12 @@ render.action.move:
 render.action.reorder:
   ja: "並び替え"
   en: "Reorder"
+render.action.unchanged_file_undefined:
+  ja: "変更なし（ファイル未定義）"
+  en: "No change (undefined in file)"
+render.action.unchanged_exact:
+  ja: "変更なし（完全一致）"
+  en: "No change (exact match)"
 
 render.target_type.role:
   ja: "role"

@@ -67,6 +67,8 @@
 - name 一致が曖昧な場合は差異として扱い、比較を継続する。
 - channels の name 一致は親カテゴリスコープ + チャンネル種別 + name で照合し、それでも曖昧な場合は決定的な内部一時順序で区別する。
 - `file_trust_mode=false`: アップロードを部分パッチとしてマージし、未指定セクション・未指定リソース・未指定フィールドは現状維持とする。
+- `file_trust_mode=false`: guild に存在しアップロードで未定義のリソースは `変更なし（ファイル未定義）` として表示する。
+- guild とアップロードの両方で定義され、完全一致するリソースは `変更なし（完全一致）` として表示する。
 - `file_trust_mode=true`: アップロードを完全スキーマとして扱い、未記載リソースは削除差分になる。
 - アップロード内の `guild.id` が定義されていて現在ギルドIDと異なる場合、続行前に現在ギルドIDへ上書きするか確認する。
 - この確認がキャンセルまたはタイムアウトした場合、コマンドは中止する。
@@ -110,6 +112,7 @@
 - Diff モデル:
   - `summary`
   - `changes[]` (`action`, `target_type`, `target_id`, `before_name`, `after_name`, `before`, `after`, `risk`)
+  - `informational_changes[]` (`action`, `target_type`, `target_id`, `before_name`, `after_name`, `before`, `after`)
 - Apply モデル:
   - `backup_file`
   - `applied[]`

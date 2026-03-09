@@ -65,6 +65,8 @@ REQUIRED_MESSAGE_IDS: tuple[str, ...] = (
     "render.action.delete",
     "render.action.move",
     "render.action.reorder",
+    "render.action.unchanged_file_undefined",
+    "render.action.unchanged_exact",
     "render.target_type.role",
     "render.target_type.category",
     "render.target_type.channel",
