@@ -85,6 +85,8 @@ def parse_schema_patch_yaml(
         allow_ambiguous_name_match=allow_ambiguous_name_match,
     )
     _populate_channel_parent_names_from_payload(merged_payload)
+    if prefer_name_matching:
+        _synchronize_channel_parent_ids_from_parent_name(merged_payload)
     return parse_schema_dict(
         merged_payload,
         strict_relationship_validation=strict_relationship_validation,
@@ -463,6 +465,45 @@ def _populate_channel_parent_names_from_payload(payload: dict[str, object]) -> N
         if resolved_name is None:
             continue
         channel["parent_name"] = resolved_name
+
+
+def _synchronize_channel_parent_ids_from_parent_name(
+    payload: dict[str, object],
+) -> None:
+    categories_raw = payload.get("categories")
+    channels_raw = payload.get("channels")
+    if not isinstance(categories_raw, list) or not isinstance(channels_raw, list):
+        return
+
+    category_ids_by_name: dict[str, list[str]] = {}
+    for raw_category in cast(list[object], categories_raw):
+        if not isinstance(raw_category, dict):
+            continue
+        category = cast(dict[str, object], raw_category)
+        category_id = category.get("id")
+        category_name = category.get("name")
+        if (
+            isinstance(category_id, str)
+            and category_id
+            and isinstance(category_name, str)
+            and category_name
+        ):
+            category_ids_by_name.setdefault(category_name, []).append(category_id)
+
+    if not category_ids_by_name:
+        return
+
+    for raw_channel in cast(list[object], channels_raw):
+        if not isinstance(raw_channel, dict):
+            continue
+        channel = cast(dict[str, object], raw_channel)
+        parent_name = channel.get("parent_name")
+        if not isinstance(parent_name, str) or not parent_name:
+            continue
+        matched_ids = category_ids_by_name.get(parent_name)
+        if matched_ids is None or len(matched_ids) != 1:
+            continue
+        channel["parent_id"] = matched_ids[0]
 
 
 def _populate_channel_parent_names(

@@ -630,6 +630,69 @@ def test_diff_name_priority_matches_foreign_parent_id_channel_by_name() -> None:
     assert "patched-topic" in response.markdown
 
 
+def test_apply_name_priority_matches_foreign_parent_id_channel_by_name() -> None:
+    current = parse_schema_dict(
+        {
+            "version": 1,
+            "guild": {"id": "1", "name": "Guild"},
+            "roles": [],
+            "categories": [
+                {
+                    "id": "200",
+                    "name": "テキストチャンネル",
+                    "position": 0,
+                    "overwrites": [],
+                }
+            ],
+            "channels": [
+                {
+                    "id": "300",
+                    "name": "一般",
+                    "type": "text",
+                    "parent_id": "200",
+                    "position": 0,
+                    "topic": "old-topic",
+                    "overwrites": [],
+                }
+            ],
+        }
+    )
+    uploaded = yaml.safe_dump(
+        {
+            "version": 1,
+            "guild": {"id": "999", "name": "Foreign Guild"},
+            "channels": [
+                {
+                    "id": "700",
+                    "name": "一般",
+                    "type": "text",
+                    "parent_id": "800",
+                    "position": 0,
+                    "topic": "patched-topic",
+                    "overwrites": [],
+                }
+            ],
+        },
+        sort_keys=False,
+        allow_unicode=True,
+    ).encode("utf-8")
+
+    srv = service()
+    preview = srv.apply_schema_preview(
+        current,
+        uploaded,
+        invoker_is_admin=True,
+        invoker_id=1,
+        prefer_name_matching=True,
+    )
+
+    assert preview.confirmation_token is not None
+    assert "Update: 1" in preview.markdown
+    assert "Create: 0" in preview.markdown
+    assert "Delete: 0" in preview.markdown
+    assert "patched-topic" in preview.markdown
+
+
 def test_diff_uses_japanese_labels_when_requested() -> None:
     current = parse_schema_dict(base_schema_dict())
     uploaded = yaml.safe_dump(

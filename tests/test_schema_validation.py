@@ -276,3 +276,46 @@ def test_patch_yaml_name_priority_resolves_foreign_parent_id_by_category_name() 
 
     assert len(merged.channels) == 1
     assert merged.channels[0].topic == "patched"
+
+
+def test_patch_yaml_name_priority_normalizes_foreign_parent_id_on_apply_path() -> None:
+    current_payload = base_payload()
+    current_payload["categories"] = [
+        {"id": "100", "name": "テキストチャンネル", "position": 0, "overwrites": []}
+    ]
+    current_payload["channels"] = [
+        {
+            "id": "20",
+            "name": "一般",
+            "type": "text",
+            "parent_id": "100",
+            "topic": "old",
+            "overwrites": [],
+        }
+    ]
+    current = parse_schema_dict(current_payload)
+    uploaded = yaml.safe_dump(
+        {
+            "channels": [
+                {
+                    "id": "901",
+                    "name": "一般",
+                    "type": "text",
+                    "parent_id": "900",
+                    "topic": "patched",
+                }
+            ],
+        },
+        sort_keys=False,
+        allow_unicode=True,
+    ).encode("utf-8")
+
+    merged = parse_schema_patch_yaml(
+        uploaded,
+        current,
+        prefer_name_matching=True,
+    )
+
+    assert len(merged.channels) == 1
+    assert merged.channels[0].topic == "patched"
+    assert merged.channels[0].parent_id == "100"
