@@ -94,6 +94,34 @@ def test_name_priority_matches_by_name_when_ids_differ() -> None:
     assert name_priority_result.summary["Delete"] == 0
 
 
+def test_name_priority_does_not_fallback_to_id_for_all_entities() -> None:
+    current = schema(base_payload())
+
+    desired_payload = base_payload()
+    desired_payload["roles"][0]["name"] = "Ops"
+    desired_payload["categories"][0]["name"] = "Archive"
+    desired_payload["channels"][0]["name"] = "general"
+    desired_payload["channels"][0]["parent_id"] = "200"
+    desired = schema(desired_payload)
+
+    result = diff_schemas(current, desired, prefer_name_matching=True)
+
+    assert any(c.action == "Create" and c.target_type == "role" for c in result.changes)
+    assert any(c.action == "Delete" and c.target_type == "role" for c in result.changes)
+    assert any(
+        c.action == "Create" and c.target_type == "category" for c in result.changes
+    )
+    assert any(
+        c.action == "Delete" and c.target_type == "category" for c in result.changes
+    )
+    assert any(
+        c.action == "Create" and c.target_type == "channel" for c in result.changes
+    )
+    assert any(
+        c.action == "Delete" and c.target_type == "channel" for c in result.changes
+    )
+
+
 def test_name_only_unique_match_updates_existing() -> None:
     payload = base_payload()
     payload["roles"] = [{"name": "Moderators", "permissions": ["manage_channels"]}]

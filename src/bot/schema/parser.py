@@ -59,6 +59,7 @@ def parse_schema_yaml(
     strict_relationship_validation: bool = True,
 ) -> GuildSchema:
     payload = _load_yaml_mapping(raw)
+    _populate_channel_parent_names_from_payload(payload)
     return parse_schema_dict(
         payload,
         strict_relationship_validation=strict_relationship_validation,
@@ -74,12 +75,16 @@ def parse_schema_patch_yaml(
     strict_relationship_validation: bool = True,
 ) -> GuildSchema:
     patch_payload = _load_yaml_mapping(raw)
+    _populate_channel_parent_names_from_payload(patch_payload)
+    current_payload = schema_to_dict(current)
+    _populate_channel_parent_names_from_payload(current_payload)
     merged_payload = _merge_schema_patch(
-        schema_to_dict(current),
+        current_payload,
         patch_payload,
         prefer_name_matching=prefer_name_matching,
         allow_ambiguous_name_match=allow_ambiguous_name_match,
     )
+    _populate_channel_parent_names_from_payload(merged_payload)
     return parse_schema_dict(
         merged_payload,
         strict_relationship_validation=strict_relationship_validation,
@@ -206,7 +211,7 @@ def _find_match_index(
     allow_ambiguous_name_match: bool,
 ) -> int | None:
     if prefer_name_matching:
-        name_match = _find_name_match_index(
+        return _find_name_match_index(
             current_items=current_items,
             patch_item=patch_item,
             section=section,
@@ -214,15 +219,6 @@ def _find_match_index(
             matched_indices=matched_indices,
             prefer_name_matching=prefer_name_matching,
             allow_ambiguous_name_match=allow_ambiguous_name_match,
-        )
-        if name_match is not None:
-            return name_match
-        return _find_id_match_index(
-            current_items=current_items,
-            patch_item=patch_item,
-            section=section,
-            patch_index=patch_index,
-            matched_indices=matched_indices,
         )
 
     id_match = _find_id_match_index(
@@ -369,6 +365,12 @@ def _channel_parent_scope_from_mapping(
     *,
     prefer_name_matching: bool,
 ) -> str | None:
+    if prefer_name_matching:
+        parent_name = payload.get("parent_name")
+        if isinstance(parent_name, str) and parent_name:
+            return parent_name
+        return None
+
     first = "parent_name" if prefer_name_matching else "parent_id"
     second = "parent_id" if prefer_name_matching else "parent_name"
     first_value = payload.get(first)
@@ -401,6 +403,7 @@ def parse_schema_dict(
     roles = _parse_roles(payload.get("roles", []))
     categories = _parse_categories(payload.get("categories", []))
     channels = _parse_channels(payload.get("channels", []))
+    _populate_channel_parent_names(channels, categories)
 
     if strict_relationship_validation:
         _validate_duplicate_ids(roles, "roles")
@@ -420,6 +423,64 @@ def parse_schema_dict(
         categories=categories,
         channels=channels,
     )
+
+
+def _populate_channel_parent_names_from_payload(payload: dict[str, object]) -> None:
+    categories_raw = payload.get("categories")
+    channels_raw = payload.get("channels")
+    if not isinstance(categories_raw, list) or not isinstance(channels_raw, list):
+        return
+
+    category_name_by_id: dict[str, str] = {}
+    for raw_category in cast(list[object], categories_raw):
+        if not isinstance(raw_category, dict):
+            continue
+        category = cast(dict[str, object], raw_category)
+        category_id = category.get("id")
+        category_name = category.get("name")
+        if (
+            isinstance(category_id, str)
+            and category_id
+            and isinstance(category_name, str)
+            and category_name
+        ):
+            category_name_by_id[category_id] = category_name
+
+    if not category_name_by_id:
+        return
+
+    for raw_channel in cast(list[object], channels_raw):
+        if not isinstance(raw_channel, dict):
+            continue
+        channel = cast(dict[str, object], raw_channel)
+        parent_name = channel.get("parent_name")
+        if isinstance(parent_name, str) and parent_name:
+            continue
+        parent_id = channel.get("parent_id")
+        if not isinstance(parent_id, str) or not parent_id:
+            continue
+        resolved_name = category_name_by_id.get(parent_id)
+        if resolved_name is None:
+            continue
+        channel["parent_name"] = resolved_name
+
+
+def _populate_channel_parent_names(
+    channels: list[ChannelSchema],
+    categories: list[CategorySchema],
+) -> None:
+    category_name_by_id = {
+        category.id: category.name for category in categories if category.id
+    }
+    for channel in channels:
+        if channel.parent_name is not None:
+            continue
+        if channel.parent_id is None:
+            continue
+        resolved_name = category_name_by_id.get(channel.parent_id)
+        if resolved_name is None:
+            continue
+        channel.parent_name = resolved_name
 
 
 def schema_to_dict(schema: GuildSchema) -> dict[str, object]:

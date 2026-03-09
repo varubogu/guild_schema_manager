@@ -98,7 +98,7 @@ Execution rules:
 - `file_trust_mode=false`: omitting roles/categories/channels from upload does not generate delete actions.
 - `file_trust_mode=true`: omission in uploaded full schema generates delete actions.
 - If uploaded `guild.id` differs and the override confirmation is cancelled or timed out, apply does not proceed.
-- If uploaded `guild.id` differs and override confirmation is approved, roles/categories/channels matching is handled in name-first mode for that request.
+- If uploaded `guild.id` differs and override confirmation is approved, roles/categories/channels matching is handled in name-first mode for that request (no ID fallback).
 - After confirmation, channel delete targets are moved to `GSM-Dustbox` instead of hard-deleted.
 - For category delete targets, child channels are moved to `GSM-Dustbox` and the category is archived for manual cleanup.
 - `GSM-Dustbox` is created with admin-only visibility if it does not exist.
@@ -109,7 +109,7 @@ Execution rules:
 ## Response Shape Contracts
 - Diff output model:
   - `summary`
-  - `changes[]` with `action`, `target_type`, `target_id`, `before`, `after`, `risk`
+  - `changes[]` with `action`, `target_type`, `target_id`, `before_name`, `after_name`, `before`, `after`, `risk`
 - Apply output model:
   - `backup_file`
   - `applied[]`

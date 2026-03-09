@@ -227,3 +227,52 @@ def test_patch_yaml_can_continue_with_same_parent_type_name_duplicates() -> None
 
     assert len(merged.channels) == 2
     assert any(channel.topic == "patched" for channel in merged.channels)
+
+
+def test_patch_yaml_name_priority_resolves_foreign_parent_id_by_category_name() -> None:
+    current_payload = base_payload()
+    current_payload["categories"] = [
+        {"id": "100", "name": "テキストチャンネル", "position": 0, "overwrites": []}
+    ]
+    current_payload["channels"] = [
+        {
+            "id": "20",
+            "name": "一般",
+            "type": "text",
+            "parent_id": "100",
+            "topic": "old",
+            "overwrites": [],
+        }
+    ]
+    current = parse_schema_dict(current_payload)
+    uploaded = yaml.safe_dump(
+        {
+            "categories": [
+                {
+                    "id": "900",
+                    "name": "テキストチャンネル",
+                }
+            ],
+            "channels": [
+                {
+                    "id": "901",
+                    "name": "一般",
+                    "type": "text",
+                    "parent_id": "900",
+                    "topic": "patched",
+                }
+            ],
+        },
+        sort_keys=False,
+        allow_unicode=True,
+    ).encode("utf-8")
+
+    merged = parse_schema_patch_yaml(
+        uploaded,
+        current,
+        prefer_name_matching=True,
+        strict_relationship_validation=False,
+    )
+
+    assert len(merged.channels) == 1
+    assert merged.channels[0].topic == "patched"

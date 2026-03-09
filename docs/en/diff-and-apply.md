@@ -17,6 +17,8 @@ Example table columns:
 - `action`
 - `target_type`
 - `target_id`
+- `before_name`
+- `after_name`
 - `before`
 - `after`
 - `risk`
@@ -47,6 +49,7 @@ Example table columns:
 - If uploaded `guild.id` exists and differs from current guild, explicit confirmation is required before diff/apply parsing proceeds.
 - If that confirmation is cancelled or times out, command execution is aborted.
 - If that mismatch confirmation is approved, roles/categories/channels matching is processed in name-first mode for that request.
+- In that name-first mode, IDs are not used as fallback keys for roles/categories/channels matching.
 - Confirm button is valid for 10 minutes.
 - Only invoker can confirm.
 - Non-invoker interaction returns rejection message.

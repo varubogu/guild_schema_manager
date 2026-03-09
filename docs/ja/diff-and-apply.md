@@ -17,6 +17,8 @@
 - `action`
 - `target_type`
 - `target_id`
+- `before_name`
+- `after_name`
 - `before`
 - `after`
 - `risk`
@@ -47,6 +49,7 @@
 - アップロード内 `guild.id` が存在し現在ギルドIDと異なる場合、diff/apply 本処理の前に明示確認を要求する。
 - この確認がキャンセルまたはタイムアウトした場合、コマンド実行を中止する。
 - この不一致確認を承認した場合、そのリクエストの roles/categories/channels 同一判定は name 優先で処理する。
+- この name 優先モードでは、roles/categories/channels の同一判定で ID へのフォールバックは行わない。
 - 確認ボタン有効時間は10分。
 - 実行者本人のみ確認可能。
 - 実行者以外の操作は拒否。

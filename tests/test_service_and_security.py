@@ -510,6 +510,89 @@ def test_diff_treats_ambiguous_channel_name_match_as_diff_not_error() -> None:
     assert "new-topic" in response.markdown
 
 
+def test_diff_name_priority_matches_foreign_parent_id_channel_by_name() -> None:
+    current = parse_schema_dict(
+        {
+            "version": 1,
+            "guild": {"id": "1", "name": "Guild"},
+            "roles": [
+                {
+                    "id": "100",
+                    "name": "Moderators",
+                    "permissions": ["manage_channels"],
+                    "position": 1,
+                }
+            ],
+            "categories": [
+                {
+                    "id": "200",
+                    "name": "テキストチャンネル",
+                    "position": 0,
+                    "overwrites": [],
+                }
+            ],
+            "channels": [
+                {
+                    "id": "300",
+                    "name": "一般",
+                    "type": "text",
+                    "parent_id": "200",
+                    "position": 0,
+                    "topic": "old-topic",
+                    "overwrites": [],
+                }
+            ],
+        }
+    )
+    uploaded = yaml.safe_dump(
+        {
+            "version": 1,
+            "guild": {"id": "999", "name": "Foreign Guild"},
+            "roles": [
+                {
+                    "id": "900",
+                    "name": "Moderators",
+                    "permissions": ["manage_channels", "mute_members"],
+                    "position": 1,
+                }
+            ],
+            "categories": [
+                {
+                    "id": "800",
+                    "name": "テキストチャンネル",
+                    "position": 0,
+                    "overwrites": [],
+                }
+            ],
+            "channels": [
+                {
+                    "id": "700",
+                    "name": "一般",
+                    "type": "text",
+                    "parent_id": "800",
+                    "position": 0,
+                    "topic": "patched-topic",
+                    "overwrites": [],
+                }
+            ],
+        },
+        sort_keys=False,
+        allow_unicode=True,
+    ).encode("utf-8")
+
+    srv = service()
+    response = srv.diff_schema(
+        current,
+        uploaded,
+        invoker_is_admin=True,
+        prefer_name_matching=True,
+    )
+
+    assert "Create: 0" in response.markdown
+    assert "Delete: 0" in response.markdown
+    assert "patched-topic" in response.markdown
+
+
 def test_diff_uses_japanese_labels_when_requested() -> None:
     current = parse_schema_dict(base_schema_dict())
     uploaded = yaml.safe_dump(

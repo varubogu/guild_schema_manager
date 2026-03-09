@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from io import StringIO
+from typing import cast
 
 from bot.diff.models import DiffResult
 from bot.localization import SupportedLocale, t
@@ -54,17 +55,22 @@ def render_diff_markdown(
         f"| {t('render.diff.column.action', locale)} | "
         f"{t('render.diff.column.target_type', locale)} | "
         f"{t('render.diff.column.target_id', locale)} | "
+        f"{t('render.diff.column.before_name', locale)} | "
+        f"{t('render.diff.column.after_name', locale)} | "
         f"{t('render.diff.column.risk', locale)} | "
         f"{t('render.diff.column.before', locale)} | "
         f"{t('render.diff.column.after', locale)} |\n"
     )
-    out.write("| --- | --- | --- | --- | --- | --- |\n")
+    out.write("| --- | --- | --- | --- | --- | --- | --- | --- |\n")
     for change in diff_result.changes:
         action = action_labels.get(change.action, change.action)
         target_type = target_labels.get(change.target_type, change.target_type)
         risk = risk_labels.get(change.risk, change.risk)
+        before_name = _display_name(change.before_name, change.before)
+        after_name = _display_name(change.after_name, change.after)
         out.write(
-            f"| {action} | {target_type} | {change.target_id or '-'} | {risk} | "
+            f"| {action} | {target_type} | {change.target_id or '-'} | "
+            f"{before_name} | {after_name} | {risk} | "
             f"`{_compact(change.before)}` | `{_compact(change.after)}` |\n"
         )
     return out.getvalue().strip()
@@ -130,3 +136,13 @@ def _compact(value: object) -> str:
     if len(text) > 100:
         return text[:97] + "..."
     return text
+
+
+def _display_name(name: str | None, payload: object) -> str:
+    if name:
+        return name
+    if isinstance(payload, dict):
+        payload_name = cast(dict[str, object], payload).get("name")
+        if isinstance(payload_name, str) and payload_name:
+            return payload_name
+    return "-"

@@ -20,6 +20,8 @@ class DiffChange:
     before: dict[str, Any] | None
     after: dict[str, Any] | None
     risk: Literal["low", "medium", "high"]
+    before_name: str | None = None
+    after_name: str | None = None
 
 
 @dataclass(slots=True)

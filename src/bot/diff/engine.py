@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections import Counter, defaultdict
-from dataclasses import asdict
+from dataclasses import asdict, replace
 from typing import Any, Callable, TypeVar
 
 from bot.schema.models import CategorySchema, ChannelSchema, GuildSchema, RoleSchema
@@ -42,8 +42,14 @@ def diff_schemas(
     )
     changes.extend(
         _diff_section(
-            current_items=current.channels,
-            desired_items=desired.channels,
+            current_items=_channels_for_name_matching(
+                current,
+                prefer_name_matching=prefer_name_matching,
+            ),
+            desired_items=_channels_for_name_matching(
+                desired,
+                prefer_name_matching=prefer_name_matching,
+            ),
             target_type="channel",
             compare_fn=lambda current_item, desired_item: _compare_channel(
                 current_item,
@@ -97,6 +103,8 @@ def _diff_section(
                     prefer_name_matching=prefer_name_matching,
                 ),
                 risk="low",
+                before_name=None,
+                after_name=desired_item.name,
             )
         )
 
@@ -109,6 +117,8 @@ def _diff_section(
                 before=_safe_payload(current_item),
                 after=None,
                 risk="high",
+                before_name=current_item.name,
+                after_name=None,
             )
         )
 
@@ -116,6 +126,33 @@ def _diff_section(
         changes.extend(compare_fn(current_item, desired_item))
 
     return changes
+
+
+def _channels_for_name_matching(
+    schema: GuildSchema,
+    *,
+    prefer_name_matching: bool,
+) -> list[ChannelSchema]:
+    if not prefer_name_matching:
+        return schema.channels
+
+    category_name_by_id = {
+        category.id: category.name for category in schema.categories if category.id
+    }
+    normalized_channels: list[ChannelSchema] = []
+    for channel in schema.channels:
+        if channel.parent_name is not None:
+            normalized_channels.append(channel)
+            continue
+        if channel.parent_id is None:
+            normalized_channels.append(channel)
+            continue
+        parent_name = category_name_by_id.get(channel.parent_id)
+        if parent_name is None:
+            normalized_channels.append(channel)
+            continue
+        normalized_channels.append(replace(channel, parent_name=parent_name))
+    return normalized_channels
 
 
 def _match_items(
@@ -154,12 +191,6 @@ def _match_items(
                     prefer_name_matching=prefer_name_matching,
                     allow_ambiguous_name_match=allow_ambiguous_name_match,
                 )
-                if matched_idx is None:
-                    matched_idx = _find_id_match_index(
-                        desired_item=desired_item,
-                        by_id=by_id,
-                        unmatched_current=unmatched_current,
-                    )
             else:
                 if desired_item.id:
                     matched_idx = _find_id_match_index(
@@ -286,6 +317,8 @@ def _compare_role(current: RoleSchema, desired: RoleSchema) -> list[DiffChange]:
                 before=changed_fields[0],
                 after=changed_fields[1],
                 risk="medium",
+                before_name=current.name,
+                after_name=desired.name,
             )
         )
 
@@ -298,6 +331,8 @@ def _compare_role(current: RoleSchema, desired: RoleSchema) -> list[DiffChange]:
                 before={"position": current.position},
                 after={"position": desired.position},
                 risk="low",
+                before_name=current.name,
+                after_name=desired.name,
             )
         )
 
@@ -319,6 +354,8 @@ def _compare_category(
                 before={"name": current.name},
                 after={"name": desired.name},
                 risk="medium",
+                before_name=current.name,
+                after_name=desired.name,
             )
         )
 
@@ -331,12 +368,19 @@ def _compare_category(
                 before={"position": current.position},
                 after={"position": desired.position},
                 risk="low",
+                before_name=current.name,
+                after_name=desired.name,
             )
         )
 
     changes.extend(
         _compare_overwrites(
-            "category", target_id, current.overwrites, desired.overwrites
+            "category",
+            target_id,
+            current.overwrites,
+            desired.overwrites,
+            before_name=current.name,
+            after_name=desired.name,
         )
     )
     return changes
@@ -365,6 +409,8 @@ def _compare_channel(
                 before=changed_fields[0],
                 after=changed_fields[1],
                 risk="medium",
+                before_name=current.name,
+                after_name=desired.name,
             )
         )
 
@@ -385,6 +431,8 @@ def _compare_channel(
                 before={"parent": current_parent},
                 after={"parent": desired_parent},
                 risk="medium",
+                before_name=current.name,
+                after_name=desired.name,
             )
         )
 
@@ -397,12 +445,19 @@ def _compare_channel(
                 before={"position": current.position},
                 after={"position": desired.position},
                 risk="low",
+                before_name=current.name,
+                after_name=desired.name,
             )
         )
 
     changes.extend(
         _compare_overwrites(
-            "channel", target_id, current.overwrites, desired.overwrites
+            "channel",
+            target_id,
+            current.overwrites,
+            desired.overwrites,
+            before_name=current.name,
+            after_name=desired.name,
         )
     )
     return changes
@@ -414,7 +469,7 @@ def _parent_reference(
     prefer_name_matching: bool,
 ) -> str | None:
     if prefer_name_matching:
-        return channel.parent_name or channel.parent_id
+        return channel.parent_name
     return channel.parent_id or channel.parent_name
 
 
@@ -439,6 +494,9 @@ def _compare_overwrites(
     owner_id: str | None,
     current_overwrites: list[Any],
     desired_overwrites: list[Any],
+    *,
+    before_name: str | None,
+    after_name: str | None,
 ) -> list[DiffChange]:
     changes: list[DiffChange] = []
 
@@ -466,6 +524,8 @@ def _compare_overwrites(
                     before=before,
                     after=None,
                     risk="medium",
+                    before_name=before_name,
+                    after_name=after_name,
                 )
             )
 
@@ -479,6 +539,8 @@ def _compare_overwrites(
                     before=None,
                     after=after,
                     risk="low",
+                    before_name=before_name,
+                    after_name=after_name,
                 )
             )
             continue
@@ -493,6 +555,8 @@ def _compare_overwrites(
                     before=before,
                     after=after,
                     risk="medium",
+                    before_name=before_name,
+                    after_name=after_name,
                 )
             )
 

@@ -98,7 +98,7 @@
 - `file_trust_mode=false`: roles/categories/channels を未記載にしても削除差分は生成しない。
 - `file_trust_mode=true`: 完全スキーマで未記載のリソースは削除差分を生成する。
 - アップロード内 `guild.id` の不一致確認がキャンセルまたはタイムアウトした場合、apply は続行しない。
-- アップロード内 `guild.id` の不一致確認を承認した場合、そのリクエストの roles/categories/channels 同一判定は name 優先で処理する。
+- アップロード内 `guild.id` の不一致確認を承認した場合、そのリクエストの roles/categories/channels 同一判定は name 優先で処理し、ID へのフォールバックは行わない。
 - 確認後のチャンネル削除はハード削除せず `GSM-Dustbox` へ移動する。
 - カテゴリ削除は子チャンネルを `GSM-Dustbox` へ移動し、カテゴリ本体は手動削除前提でアーカイブする。
 - `GSM-Dustbox` がなければ管理者のみ閲覧可能な権限で自動作成する。
@@ -109,7 +109,7 @@
 ## レスポンス契約
 - Diff モデル:
   - `summary`
-  - `changes[]` (`action`, `target_type`, `target_id`, `before`, `after`, `risk`)
+  - `changes[]` (`action`, `target_type`, `target_id`, `before_name`, `after_name`, `before`, `after`, `risk`)
 - Apply モデル:
   - `backup_file`
   - `applied[]`

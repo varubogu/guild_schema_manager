@@ -63,9 +63,41 @@ def test_render_diff_markdown_uses_spaced_table_separator() -> None:
                     before=None,
                     after={"name": "Ops"},
                     risk="low",
+                    before_name=None,
+                    after_name="Ops",
                 )
             ],
         )
     )
 
-    assert "| --- | --- | --- | --- | --- | --- |" in markdown
+    assert "| --- | --- | --- | --- | --- | --- | --- | --- |" in markdown
+
+
+def test_render_diff_markdown_includes_before_after_name_columns() -> None:
+    markdown = render_diff_markdown(
+        DiffResult(
+            summary={
+                "Create": 0,
+                "Update": 1,
+                "Delete": 0,
+                "Move": 0,
+                "Reorder": 0,
+            },
+            changes=[
+                DiffChange(
+                    action="Update",
+                    target_type="channel",
+                    target_id="300",
+                    before={"topic": "old"},
+                    after={"topic": "new"},
+                    risk="medium",
+                    before_name="一般",
+                    after_name="一般",
+                )
+            ],
+        ),
+        locale="ja",
+    )
+
+    assert "| target_id | before_name | after_name |" in markdown
+    assert "| 更新 | channel | 300 | 一般 | 一般 | 中 |" in markdown

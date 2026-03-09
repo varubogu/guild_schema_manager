@@ -49,6 +49,8 @@ REQUIRED_MESSAGE_IDS: tuple[str, ...] = (
     "render.diff.column.action",
     "render.diff.column.target_type",
     "render.diff.column.target_id",
+    "render.diff.column.before_name",
+    "render.diff.column.after_name",
     "render.diff.column.risk",
     "render.diff.column.before",
     "render.diff.column.after",
