@@ -58,12 +58,14 @@ Input:
   - `file_trust_mode` (default: `false`)
 
 Output:
-- Markdown summary.
-- Detailed change table (Create/Update/Delete/Move/Reorder).
+- Markdown summary (inline when short).
+- Downloadable diff result file (`{guild.name}-{yyyyMMdd_HHmmss}_diff.md`) containing full details.
 
 Behavior:
 - No mutating operations.
-- Invalid schema returns validation error with field path.
+- Structural schema problems (for example unknown keys or unsupported channel types) return validation error with field path.
+- Ambiguous name matches are treated as differences so comparison can continue.
+- Channel name matching uses parent scope + channel type + name. If still ambiguous, deterministic internal temporary ordering is used.
 - `file_trust_mode=false`: uploaded file is merged as partial patch; omitted sections/entities/fields are kept from current guild state.
 - `file_trust_mode=true`: uploaded file is parsed as full schema source-of-truth; omitted resources become delete diffs.
 - If uploaded `guild.id` is present and differs from the current guild, the bot asks whether to overwrite it to the current guild ID before continuing.
@@ -88,8 +90,8 @@ Workflow:
 8. Return final result report.
 
 Output:
-- Pre-confirmation: Markdown preview + confirmation UI.
-- Post-confirmation: backup attachment + apply report.
+- Pre-confirmation: Markdown preview (inline when short) + preview file attachment (`{guild.name}-{yyyyMMdd_HHmmss}_apply.md`) + confirmation UI.
+- Post-confirmation: backup attachment + apply report file attachment (`{guild.name}-{yyyyMMdd_HHmmss}_apply.md`).
 
 Execution rules:
 - Delete actions are never executed without confirmation.

@@ -128,17 +128,23 @@ class SchemaCommandService:
     ) -> DiffResponse:
         require_guild_admin(invoker_is_admin, locale=locale)
         if file_trust_mode:
-            desired = parse_schema_yaml(uploaded)
+            desired = parse_schema_yaml(
+                uploaded,
+                strict_relationship_validation=False,
+            )
         else:
             desired = parse_schema_patch_yaml(
                 uploaded,
                 current,
                 prefer_name_matching=prefer_name_matching,
+                allow_ambiguous_name_match=True,
+                strict_relationship_validation=False,
             )
         result = diff_schemas(
             current,
             desired,
             prefer_name_matching=prefer_name_matching,
+            allow_ambiguous_name_match=True,
         )
         return DiffResponse(markdown=render_diff_markdown(result, locale=locale))
 
@@ -302,9 +308,18 @@ def _prepend_schema_hint_comment(yaml_text: str, schema_url: str) -> str:
     return f"{hint}\n\n{yaml_text}"
 
 
+def build_result_markdown_filename(schema: GuildSchema, *, suffix: str) -> str:
+    base = _build_export_filename_base(schema)
+    return f"{base}_{suffix}.md"
+
+
 def _build_export_filename(schema: GuildSchema) -> str:
+    return f"{_build_export_filename_base(schema)}.yaml"
+
+
+def _build_export_filename_base(schema: GuildSchema) -> str:
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    return f"{schema.guild.name}-{timestamp}.yaml"
+    return f"{schema.guild.name}-{timestamp}"
 
 
 def _is_filtered_export(selection: ExportFieldSelection) -> bool:

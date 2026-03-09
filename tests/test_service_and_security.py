@@ -457,6 +457,59 @@ def test_diff_can_prefer_name_matching_when_ids_are_foreign() -> None:
     assert "Delete: 0" in name_priority_response.markdown
 
 
+def test_diff_treats_ambiguous_channel_name_match_as_diff_not_error() -> None:
+    current = parse_schema_dict(
+        {
+            "version": 1,
+            "guild": {"id": "1", "name": "Guild"},
+            "roles": [],
+            "categories": [
+                {"id": "200", "name": "Lobby", "position": 0, "overwrites": []}
+            ],
+            "channels": [
+                {
+                    "id": "300",
+                    "name": "general",
+                    "type": "text",
+                    "parent_id": "200",
+                    "position": 0,
+                    "topic": "old-topic",
+                    "overwrites": [],
+                },
+                {
+                    "id": "301",
+                    "name": "general",
+                    "type": "voice",
+                    "parent_id": "200",
+                    "position": 1,
+                    "overwrites": [],
+                },
+            ],
+        }
+    )
+    uploaded = yaml.safe_dump(
+        {
+            "channels": [
+                {"name": "general", "topic": "new-topic"},
+                {"name": "news", "type": "text", "parent_name": "Lobby"},
+            ]
+        },
+        sort_keys=False,
+    ).encode("utf-8")
+
+    srv = service()
+    response = srv.diff_schema(
+        current,
+        uploaded,
+        invoker_is_admin=True,
+        prefer_name_matching=True,
+    )
+
+    assert "Update: 1" in response.markdown
+    assert "Create: 1" in response.markdown
+    assert "new-topic" in response.markdown
+
+
 def test_diff_uses_japanese_labels_when_requested() -> None:
     current = parse_schema_dict(base_schema_dict())
     uploaded = yaml.safe_dump(

@@ -122,3 +122,108 @@ def test_patch_yaml_can_prefer_name_matching_when_requested() -> None:
         "manage_channels",
         "kick_members",
     ]
+
+
+def test_patch_yaml_reports_multiple_duplicate_name_errors() -> None:
+    current_payload = base_payload()
+    current_payload["channels"] = [
+        {"id": "20", "name": "general", "type": "text", "overwrites": []},
+        {"id": "21", "name": "general", "type": "text", "overwrites": []},
+    ]
+    current = parse_schema_dict(current_payload)
+    uploaded = yaml.safe_dump(
+        {
+            "channels": [
+                {"name": "general", "topic": "a"},
+                {"name": "general", "topic": "b"},
+            ]
+        },
+        sort_keys=False,
+    ).encode("utf-8")
+
+    with pytest.raises(SchemaValidationError) as exc:
+        parse_schema_patch_yaml(uploaded, current)
+
+    message = str(exc.value)
+    assert (
+        "channels[0].name: name-only duplicate match in channels: 'general'" in message
+    )
+    assert (
+        "channels[1].name: name-only duplicate match in channels: 'general'" in message
+    )
+
+
+def test_patch_yaml_can_continue_on_ambiguous_name_match_when_allowed() -> None:
+    current_payload = base_payload()
+    current_payload["channels"] = [
+        {"id": "20", "name": "general", "type": "text", "overwrites": []},
+        {"id": "21", "name": "general", "type": "voice", "overwrites": []},
+    ]
+    current = parse_schema_dict(current_payload)
+    uploaded = yaml.safe_dump(
+        {
+            "channels": [
+                {"name": "general", "topic": "patched"},
+            ]
+        },
+        sort_keys=False,
+    ).encode("utf-8")
+
+    merged = parse_schema_patch_yaml(
+        uploaded,
+        current,
+        allow_ambiguous_name_match=True,
+        strict_relationship_validation=False,
+    )
+
+    assert len(merged.channels) == 2
+    assert any(channel.topic == "patched" for channel in merged.channels)
+
+
+def test_patch_yaml_can_continue_with_same_parent_type_name_duplicates() -> None:
+    current_payload = base_payload()
+    current_payload["categories"] = [
+        {"id": "100", "name": "A", "position": 0, "overwrites": []}
+    ]
+    current_payload["channels"] = [
+        {
+            "id": "20",
+            "name": "general",
+            "type": "text",
+            "parent_id": "100",
+            "topic": "first",
+            "overwrites": [],
+        },
+        {
+            "id": "21",
+            "name": "general",
+            "type": "text",
+            "parent_id": "100",
+            "topic": "second",
+            "overwrites": [],
+        },
+    ]
+    current = parse_schema_dict(current_payload)
+    uploaded = yaml.safe_dump(
+        {
+            "channels": [
+                {
+                    "name": "general",
+                    "type": "text",
+                    "parent_id": "100",
+                    "topic": "patched",
+                }
+            ]
+        },
+        sort_keys=False,
+    ).encode("utf-8")
+
+    merged = parse_schema_patch_yaml(
+        uploaded,
+        current,
+        allow_ambiguous_name_match=True,
+        strict_relationship_validation=False,
+    )
+
+    assert len(merged.channels) == 2
+    assert any(channel.topic == "patched" for channel in merged.channels)

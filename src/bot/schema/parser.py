@@ -53,9 +53,16 @@ _ALLOWED_TARGET_TYPES = {"role", "member"}
 _SUPPORTED_CHANNEL_TYPES = {"text", "voice", "news", "stage_voice", "forum", "media"}
 
 
-def parse_schema_yaml(raw: bytes | str) -> GuildSchema:
+def parse_schema_yaml(
+    raw: bytes | str,
+    *,
+    strict_relationship_validation: bool = True,
+) -> GuildSchema:
     payload = _load_yaml_mapping(raw)
-    return parse_schema_dict(payload)
+    return parse_schema_dict(
+        payload,
+        strict_relationship_validation=strict_relationship_validation,
+    )
 
 
 def parse_schema_patch_yaml(
@@ -63,14 +70,20 @@ def parse_schema_patch_yaml(
     current: GuildSchema,
     *,
     prefer_name_matching: bool = False,
+    allow_ambiguous_name_match: bool = False,
+    strict_relationship_validation: bool = True,
 ) -> GuildSchema:
     patch_payload = _load_yaml_mapping(raw)
     merged_payload = _merge_schema_patch(
         schema_to_dict(current),
         patch_payload,
         prefer_name_matching=prefer_name_matching,
+        allow_ambiguous_name_match=allow_ambiguous_name_match,
     )
-    return parse_schema_dict(merged_payload)
+    return parse_schema_dict(
+        merged_payload,
+        strict_relationship_validation=strict_relationship_validation,
+    )
 
 
 def _load_yaml_mapping(raw: bytes | str) -> dict[str, object]:
@@ -95,6 +108,7 @@ def _merge_schema_patch(
     patch_payload: dict[str, object],
     *,
     prefer_name_matching: bool,
+    allow_ambiguous_name_match: bool,
 ) -> dict[str, object]:
     merged = dict(current_payload)
     for key, value in patch_payload.items():
@@ -107,6 +121,7 @@ def _merge_schema_patch(
                 value,
                 section=key,
                 prefer_name_matching=prefer_name_matching,
+                allow_ambiguous_name_match=allow_ambiguous_name_match,
             )
             continue
         merged[key] = value
@@ -131,6 +146,7 @@ def _merge_entity_payload(
     *,
     section: str,
     prefer_name_matching: bool,
+    allow_ambiguous_name_match: bool,
 ) -> object:
     if not isinstance(current_value, list) or not isinstance(patch_value, list):
         return patch_value
@@ -138,6 +154,7 @@ def _merge_entity_payload(
     current_items = cast(list[object], current_value)
     merged_items = list(current_items)
     matched_indices: set[int] = set()
+    validation_errors: list[SchemaValidationError] = []
 
     for patch_index, patch_item in enumerate(cast(list[object], patch_value)):
         if not isinstance(patch_item, dict):
@@ -145,14 +162,19 @@ def _merge_entity_payload(
             continue
 
         patch_item_dict = cast(dict[str, object], patch_item)
-        matched_index = _find_match_index(
-            current_items=current_items,
-            patch_item=patch_item_dict,
-            section=section,
-            patch_index=patch_index,
-            matched_indices=matched_indices,
-            prefer_name_matching=prefer_name_matching,
-        )
+        try:
+            matched_index = _find_match_index(
+                current_items=current_items,
+                patch_item=patch_item_dict,
+                section=section,
+                patch_index=patch_index,
+                matched_indices=matched_indices,
+                prefer_name_matching=prefer_name_matching,
+                allow_ambiguous_name_match=allow_ambiguous_name_match,
+            )
+        except SchemaValidationError as exc:
+            validation_errors.append(exc)
+            continue
         if matched_index is None:
             merged_items.append(patch_item_dict)
             continue
@@ -167,6 +189,9 @@ def _merge_entity_payload(
         merged_items[matched_index] = merged_item
         matched_indices.add(matched_index)
 
+    if validation_errors:
+        raise _compose_validation_error(validation_errors)
+
     return merged_items
 
 
@@ -178,6 +203,7 @@ def _find_match_index(
     patch_index: int,
     matched_indices: set[int],
     prefer_name_matching: bool,
+    allow_ambiguous_name_match: bool,
 ) -> int | None:
     if prefer_name_matching:
         name_match = _find_name_match_index(
@@ -186,6 +212,8 @@ def _find_match_index(
             section=section,
             patch_index=patch_index,
             matched_indices=matched_indices,
+            prefer_name_matching=prefer_name_matching,
+            allow_ambiguous_name_match=allow_ambiguous_name_match,
         )
         if name_match is not None:
             return name_match
@@ -214,6 +242,8 @@ def _find_match_index(
         section=section,
         patch_index=patch_index,
         matched_indices=matched_indices,
+        prefer_name_matching=prefer_name_matching,
+        allow_ambiguous_name_match=allow_ambiguous_name_match,
     )
 
 
@@ -256,19 +286,51 @@ def _find_name_match_index(
     section: str,
     patch_index: int,
     matched_indices: set[int],
+    prefer_name_matching: bool,
+    allow_ambiguous_name_match: bool,
 ) -> int | None:
     patch_name = patch_item.get("name")
     if not isinstance(patch_name, str) or not patch_name:
         return None
 
     all_candidates: list[int] = []
+    patch_channel_type: str | None = None
+    patch_parent_scope: str | None = None
+    if section == "channels":
+        patch_type = patch_item.get("type")
+        if isinstance(patch_type, str) and patch_type:
+            patch_channel_type = patch_type
+        patch_parent_scope = _channel_parent_scope_from_mapping(
+            patch_item,
+            prefer_name_matching=prefer_name_matching,
+        )
+
     for idx, current_item in enumerate(current_items):
         if not isinstance(current_item, dict):
             continue
-        if cast(dict[str, object], current_item).get("name") == patch_name:
-            all_candidates.append(idx)
+        current_item_dict = cast(dict[str, object], current_item)
+        if current_item_dict.get("name") != patch_name:
+            continue
+        if (
+            patch_channel_type is not None
+            and current_item_dict.get("type") != patch_channel_type
+        ):
+            continue
+        if section == "channels" and patch_parent_scope is not None:
+            current_parent_scope = _channel_parent_scope_from_mapping(
+                current_item_dict,
+                prefer_name_matching=prefer_name_matching,
+            )
+            if current_parent_scope != patch_parent_scope:
+                continue
+        all_candidates.append(idx)
 
     if len(all_candidates) > 1:
+        if allow_ambiguous_name_match:
+            for candidate in all_candidates:
+                if candidate not in matched_indices:
+                    return candidate
+            return None
         raise SchemaValidationError(
             f"name-only duplicate match in {section}: '{patch_name}'",
             f"{section}[{patch_index}].name",
@@ -279,6 +341,11 @@ def _find_name_match_index(
 
     matched = all_candidates[0]
     if matched in matched_indices:
+        if allow_ambiguous_name_match:
+            for candidate in all_candidates:
+                if candidate not in matched_indices:
+                    return candidate
+            return None
         raise SchemaValidationError(
             f"duplicate patch entries for name '{patch_name}'",
             f"{section}[{patch_index}].name",
@@ -297,7 +364,36 @@ def _id_only_match_required(patch_item: dict[str, object]) -> bool:
     )
 
 
-def parse_schema_dict(payload: dict[str, object]) -> GuildSchema:
+def _channel_parent_scope_from_mapping(
+    payload: dict[str, object],
+    *,
+    prefer_name_matching: bool,
+) -> str | None:
+    first = "parent_name" if prefer_name_matching else "parent_id"
+    second = "parent_id" if prefer_name_matching else "parent_name"
+    first_value = payload.get(first)
+    if isinstance(first_value, str) and first_value:
+        return first_value
+    second_value = payload.get(second)
+    if isinstance(second_value, str) and second_value:
+        return second_value
+    return None
+
+
+def _compose_validation_error(
+    errors: list[SchemaValidationError],
+) -> SchemaValidationError:
+    if len(errors) == 1:
+        return errors[0]
+    details = "\n".join(f"- {error}" for error in errors)
+    return SchemaValidationError(f"multiple validation errors:\n{details}")
+
+
+def parse_schema_dict(
+    payload: dict[str, object],
+    *,
+    strict_relationship_validation: bool = True,
+) -> GuildSchema:
     _ensure_known_keys(payload, _ALLOWED_TOP_LEVEL_KEYS, "")
     _require_keys(payload, {"version", "guild", "roles", "categories", "channels"}, "")
 
@@ -306,11 +402,12 @@ def parse_schema_dict(payload: dict[str, object]) -> GuildSchema:
     categories = _parse_categories(payload.get("categories", []))
     channels = _parse_channels(payload.get("channels", []))
 
-    _validate_duplicate_ids(roles, "roles")
-    _validate_duplicate_ids(categories, "categories")
-    _validate_duplicate_ids(channels, "channels")
-    _validate_parent_references(channels, categories)
-    _validate_overwrite_targets(categories, channels, roles)
+    if strict_relationship_validation:
+        _validate_duplicate_ids(roles, "roles")
+        _validate_duplicate_ids(categories, "categories")
+        _validate_duplicate_ids(channels, "channels")
+        _validate_parent_references(channels, categories)
+        _validate_overwrite_targets(categories, channels, roles)
 
     version = payload["version"]
     if not isinstance(version, int):

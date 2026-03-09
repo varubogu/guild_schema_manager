@@ -9,6 +9,7 @@ from discord import app_commands
 from bot.commands import (
     ExportFieldSelection,
     SchemaCommandService,
+    build_result_markdown_filename,
     extract_uploaded_guild_id,
     overwrite_uploaded_guild_id,
 )
@@ -48,6 +49,7 @@ EXPORT_INCLUDE_ROLE_OVERWRITES_DESCRIPTION = _localized(
 EXPORT_INCLUDE_OTHER_SETTINGS_DESCRIPTION = _localized(
     "schema.argument.export.include_other_settings.description"
 )
+INLINE_MESSAGE_MAX_LENGTH = 1800
 
 
 class SchemaCommandTranslator(app_commands.Translator):
@@ -83,6 +85,21 @@ def _interaction_context(interaction: discord.Interaction) -> dict[str, object]:
         "guild_id": getattr(interaction.guild, "id", None),
         "user_id": getattr(interaction.user, "id", None),
     }
+
+
+def _content_or_file_notice(markdown: str, locale: SupportedLocale) -> str:
+    if len(markdown) <= INLINE_MESSAGE_MAX_LENGTH:
+        return markdown
+    if locale == "ja":
+        return "結果が長いため、添付ファイルを確認してください。"
+    return "Result is attached as a file because it is too long to display inline."
+
+
+def _markdown_file(markdown: str, filename: str) -> discord.File:
+    return discord.File(
+        fp=io.BytesIO(markdown.encode("utf-8")),
+        filename=filename,
+    )
 
 
 def _confirm_context(
@@ -278,8 +295,18 @@ class ConfirmApplyView(discord.ui.View):
                     filename=response.backup_file.filename,
                 )
             )
+        files.append(
+            _markdown_file(
+                response.markdown,
+                build_result_markdown_filename(snapshot, suffix="apply"),
+            )
+        )
 
-        await interaction.followup.send(response.markdown, files=files, ephemeral=True)
+        await interaction.followup.send(
+            _content_or_file_notice(response.markdown, locale),
+            files=files,
+            ephemeral=True,
+        )
 
         if response.report is not None and response.report.failed:
             logger.error(
@@ -562,7 +589,14 @@ class SchemaBot(discord.Client):
             )
             return
 
-        await interaction.followup.send(response.markdown, ephemeral=True)
+        await interaction.followup.send(
+            _content_or_file_notice(response.markdown, locale),
+            file=_markdown_file(
+                response.markdown,
+                build_result_markdown_filename(snapshot, suffix="diff"),
+            ),
+            ephemeral=True,
+        )
 
     @log_async_lifecycle(
         logger,
@@ -635,7 +669,14 @@ class SchemaBot(discord.Client):
             return
 
         if response.confirmation_token is None:
-            await interaction.followup.send(response.markdown, ephemeral=True)
+            await interaction.followup.send(
+                _content_or_file_notice(response.markdown, locale),
+                file=_markdown_file(
+                    response.markdown,
+                    build_result_markdown_filename(snapshot, suffix="apply"),
+                ),
+                ephemeral=True,
+            )
             return
 
         view = ConfirmApplyView(
@@ -644,7 +685,15 @@ class SchemaBot(discord.Client):
             timeout=float(self.settings.confirm_ttl_seconds),
             locale=locale,
         )
-        await interaction.followup.send(response.markdown, view=view, ephemeral=True)
+        await interaction.followup.send(
+            _content_or_file_notice(response.markdown, locale),
+            file=_markdown_file(
+                response.markdown,
+                build_result_markdown_filename(snapshot, suffix="apply"),
+            ),
+            view=view,
+            ephemeral=True,
+        )
 
 
 def create_client(settings: Settings) -> SchemaBot:

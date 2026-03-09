@@ -78,11 +78,13 @@ def _channel_to_schema(channel: object) -> ChannelSchema:
     type_name = str(getattr(getattr(channel, "type", None), "name", "text"))
     parent = getattr(channel, "category", None)
     parent_id = str(getattr(parent, "id")) if parent is not None else None
+    parent_name = str(getattr(parent, "name")) if parent is not None else None
     return ChannelSchema(
         id=str(getattr(channel, "id")),
         name=str(getattr(channel, "name")),
         type=_normalize_channel_type(type_name),
         parent_id=parent_id,
+        parent_name=parent_name,
         position=int(getattr(channel, "position", 0)),
         topic=getattr(channel, "topic", None),
         nsfw=bool(getattr(channel, "nsfw", False)),

@@ -17,6 +17,7 @@ def diff_schemas(
     desired: GuildSchema,
     *,
     prefer_name_matching: bool = False,
+    allow_ambiguous_name_match: bool = False,
 ) -> DiffResult:
     changes: list[DiffChange] = []
     changes.extend(
@@ -26,6 +27,7 @@ def diff_schemas(
             target_type="role",
             compare_fn=_compare_role,
             prefer_name_matching=prefer_name_matching,
+            allow_ambiguous_name_match=allow_ambiguous_name_match,
         )
     )
     changes.extend(
@@ -35,6 +37,7 @@ def diff_schemas(
             target_type="category",
             compare_fn=_compare_category,
             prefer_name_matching=prefer_name_matching,
+            allow_ambiguous_name_match=allow_ambiguous_name_match,
         )
     )
     changes.extend(
@@ -48,6 +51,7 @@ def diff_schemas(
                 prefer_name_matching=prefer_name_matching,
             ),
             prefer_name_matching=prefer_name_matching,
+            allow_ambiguous_name_match=allow_ambiguous_name_match,
         )
     )
 
@@ -69,12 +73,14 @@ def _diff_section(
     compare_fn: Callable[[T, T], list[DiffChange]],
     *,
     prefer_name_matching: bool,
+    allow_ambiguous_name_match: bool,
 ) -> list[DiffChange]:
     matched_pairs, creates, deletes = _match_items(
         current_items,
         desired_items,
         target_type,
         prefer_name_matching=prefer_name_matching,
+        allow_ambiguous_name_match=allow_ambiguous_name_match,
     )
     changes: list[DiffChange] = []
 
@@ -118,6 +124,7 @@ def _match_items(
     target_type: str,
     *,
     prefer_name_matching: bool,
+    allow_ambiguous_name_match: bool,
 ) -> tuple[list[tuple[T, T]], list[T], list[T]]:
     unmatched_current = set(range(len(current_items)))
 
@@ -131,37 +138,48 @@ def _match_items(
 
     matched: list[tuple[T, T]] = []
     creates: list[T] = []
+    validation_errors: list[str] = []
 
     for desired_item in desired_items:
         matched_idx: int | None = None
 
-        if prefer_name_matching:
-            matched_idx = _find_name_match_index(
-                desired_item=desired_item,
-                by_name=by_name,
-                unmatched_current=unmatched_current,
-                target_type=target_type,
-            )
-            if matched_idx is None:
-                matched_idx = _find_id_match_index(
-                    desired_item=desired_item,
-                    by_id=by_id,
-                    unmatched_current=unmatched_current,
-                )
-        else:
-            if desired_item.id:
-                matched_idx = _find_id_match_index(
-                    desired_item=desired_item,
-                    by_id=by_id,
-                    unmatched_current=unmatched_current,
-                )
-            else:
+        try:
+            if prefer_name_matching:
                 matched_idx = _find_name_match_index(
                     desired_item=desired_item,
+                    current_items=current_items,
                     by_name=by_name,
                     unmatched_current=unmatched_current,
                     target_type=target_type,
+                    prefer_name_matching=prefer_name_matching,
+                    allow_ambiguous_name_match=allow_ambiguous_name_match,
                 )
+                if matched_idx is None:
+                    matched_idx = _find_id_match_index(
+                        desired_item=desired_item,
+                        by_id=by_id,
+                        unmatched_current=unmatched_current,
+                    )
+            else:
+                if desired_item.id:
+                    matched_idx = _find_id_match_index(
+                        desired_item=desired_item,
+                        by_id=by_id,
+                        unmatched_current=unmatched_current,
+                    )
+                else:
+                    matched_idx = _find_name_match_index(
+                        desired_item=desired_item,
+                        current_items=current_items,
+                        by_name=by_name,
+                        unmatched_current=unmatched_current,
+                        target_type=target_type,
+                        prefer_name_matching=prefer_name_matching,
+                        allow_ambiguous_name_match=allow_ambiguous_name_match,
+                    )
+        except DiffValidationError as exc:
+            validation_errors.append(str(exc))
+            continue
 
         if matched_idx is None:
             creates.append(desired_item)
@@ -169,6 +187,9 @@ def _match_items(
 
         unmatched_current.remove(matched_idx)
         matched.append((current_items[matched_idx], desired_item))
+
+    if validation_errors:
+        raise _compose_validation_error(validation_errors)
 
     deletes = [current_items[idx] for idx in sorted(unmatched_current)]
     return matched, creates, deletes
@@ -191,20 +212,59 @@ def _find_id_match_index(
 def _find_name_match_index(
     *,
     desired_item: T,
+    current_items: list[T],
     by_name: defaultdict[str, list[int]],
     unmatched_current: set[int],
     target_type: str,
+    prefer_name_matching: bool,
+    allow_ambiguous_name_match: bool,
 ) -> int | None:
     candidates = [
         idx for idx in by_name.get(desired_item.name, []) if idx in unmatched_current
     ]
+
+    # Channel names can be duplicated across types; narrow by channel type first.
+    if target_type == "channel" and isinstance(desired_item, ChannelSchema):
+        desired_channel_type = desired_item.type
+        desired_parent_scope = _parent_reference(
+            desired_item,
+            prefer_name_matching=prefer_name_matching,
+        )
+        typed_candidates: list[int] = []
+        for idx in candidates:
+            current_candidate = current_items[idx]
+            if not isinstance(current_candidate, ChannelSchema):
+                continue
+            if current_candidate.type != desired_channel_type:
+                continue
+            if desired_parent_scope is not None:
+                current_parent_scope = _parent_reference(
+                    current_candidate,
+                    prefer_name_matching=prefer_name_matching,
+                )
+                if current_parent_scope != desired_parent_scope:
+                    continue
+            typed_candidates.append(idx)
+        if typed_candidates:
+            candidates = typed_candidates
+
     if len(candidates) > 1:
+        if allow_ambiguous_name_match:
+            # Ambiguous candidates are distinguished internally by stable order.
+            return candidates[0]
         raise DiffValidationError(
             f"name-only duplicate match in {target_type}: '{desired_item.name}'"
         )
     if len(candidates) == 1:
         return candidates[0]
     return None
+
+
+def _compose_validation_error(errors: list[str]) -> DiffValidationError:
+    if len(errors) == 1:
+        return DiffValidationError(errors[0])
+    details = "\n".join(f"- {error}" for error in errors)
+    return DiffValidationError(f"multiple validation errors:\n{details}")
 
 
 def _compare_role(current: RoleSchema, desired: RoleSchema) -> list[DiffChange]:

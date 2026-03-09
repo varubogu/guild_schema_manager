@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import asyncio
+import re
 from types import SimpleNamespace
-from typing import Any
+from typing import Any, cast
 
 import bot.app as app_module
 
@@ -12,9 +13,9 @@ def _always_admin(user: object) -> bool:
     return True
 
 
-def _snapshot(guild: object) -> str:
+def _snapshot(guild: object) -> object:
     _ = guild
-    return "snapshot"
+    return SimpleNamespace(guild=SimpleNamespace(name="Guild"))
 
 
 async def _passthrough_confirmation(
@@ -102,11 +103,25 @@ class _FakeAttachment:
         return self._payload
 
 
+def _attached_filename(message: dict[str, object]) -> str:
+    file_obj = cast(Any, message["file"])
+    return str(file_obj.filename)
+
+
+def _assert_export_style_result_filename(filename: str, suffix: str) -> None:
+    assert re.fullmatch(
+        rf"Guild-\d{{8}}_\d{{6}}_{re.escape(suffix)}\.md",
+        filename,
+    )
+
+
 class _FakeService:
     def __init__(self) -> None:
         self.export_calls: list[dict[str, object]] = []
         self.diff_calls: list[dict[str, object]] = []
         self.apply_calls: list[dict[str, object]] = []
+        self.diff_markdown = "diff-ok"
+        self.apply_markdown = "apply-ok"
 
     def export_schema(
         self,
@@ -149,7 +164,7 @@ class _FakeService:
                 "locale": locale,
             }
         )
-        return SimpleNamespace(markdown="diff-ok")
+        return SimpleNamespace(markdown=self.diff_markdown)
 
     def apply_schema_preview(
         self,
@@ -173,7 +188,7 @@ class _FakeService:
                 "locale": locale,
             }
         )
-        return SimpleNamespace(markdown="apply-ok", confirmation_token=None)
+        return SimpleNamespace(markdown=self.apply_markdown, confirmation_token=None)
 
 
 def test_handle_export_defers_and_uses_followup(
@@ -243,6 +258,10 @@ def test_handle_diff_passes_file_trust_mode_to_service(
     assert fake_service.diff_calls[0]["locale"] == "en"
     assert interaction.response.deferred == [{"ephemeral": True}]
     assert interaction.followup.messages[0]["content"] == "diff-ok"
+    _assert_export_style_result_filename(
+        _attached_filename(interaction.followup.messages[0]),
+        "diff",
+    )
 
 
 def test_handle_apply_passes_file_trust_mode_to_service(
@@ -278,6 +297,10 @@ def test_handle_apply_passes_file_trust_mode_to_service(
     assert fake_service.apply_calls[0]["locale"] == "en"
     assert interaction.response.deferred == [{"ephemeral": True}]
     assert interaction.followup.messages[0]["content"] == "apply-ok"
+    _assert_export_style_result_filename(
+        _attached_filename(interaction.followup.messages[0]),
+        "apply",
+    )
 
 
 def test_handle_diff_stops_when_guild_id_override_not_confirmed(
@@ -341,6 +364,10 @@ def test_handle_apply_uses_overridden_payload_after_guild_id_confirmation(
     assert len(fake_service.apply_calls) == 1
     assert fake_service.apply_calls[0]["uploaded"] == b"rewritten"
     assert fake_service.apply_calls[0]["prefer_name_matching"] is True
+    _assert_export_style_result_filename(
+        _attached_filename(interaction.followup.messages[0]),
+        "apply",
+    )
 
 
 def test_handle_diff_enables_name_priority_after_guild_id_confirmation(
@@ -373,6 +400,47 @@ def test_handle_diff_enables_name_priority_after_guild_id_confirmation(
     assert len(fake_service.diff_calls) == 1
     assert fake_service.diff_calls[0]["uploaded"] == b"rewritten"
     assert fake_service.diff_calls[0]["prefer_name_matching"] is True
+    _assert_export_style_result_filename(
+        _attached_filename(interaction.followup.messages[0]),
+        "diff",
+    )
+
+
+def test_handle_diff_uses_file_notice_for_long_result(
+    monkeypatch: Any,
+) -> None:
+    fake_service = _FakeService()
+    fake_service.diff_markdown = "x" * 2001
+    fake_bot = SimpleNamespace(
+        service=fake_service,
+        _maybe_confirm_guild_id_override=_passthrough_confirmation,
+    )
+    interaction = _FakeInteraction()
+    attachment = _FakeAttachment(b"test")
+
+    monkeypatch.setattr(app_module, "member_is_guild_admin", _always_admin)
+    monkeypatch.setattr(
+        app_module,
+        "build_snapshot_from_guild",
+        _snapshot,
+    )
+
+    asyncio.run(
+        getattr(app_module.SchemaBot, "_handle_diff")(
+            fake_bot,
+            interaction,
+            attachment,
+            file_trust_mode=False,
+        )
+    )
+
+    assert interaction.followup.messages[0]["content"] == (
+        "Result is attached as a file because it is too long to display inline."
+    )
+    _assert_export_style_result_filename(
+        _attached_filename(interaction.followup.messages[0]),
+        "diff",
+    )
 
 
 def test_handle_export_replies_with_japanese_guild_required_message() -> None:

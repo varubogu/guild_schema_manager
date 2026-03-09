@@ -30,6 +30,7 @@
 15. Partial Discord API failures are separated into `failed[]` while successful operations remain in `applied[]`.
 16. Bot restart invalidates pending confirmation plans.
 17. When `guild.id` mismatch continuation is approved, matching switches to name-first for roles/categories/channels.
+18. `/schema diff` continues and reports differences even when name matching is ambiguous.
 
 ## Mocking Strategy
 - Mock discord.py HTTP/guild objects at service boundary.

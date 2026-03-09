@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+from bot.diff.models import DiffChange, DiffResult
 from bot.planner.models import ApplyReport
-from bot.rendering import render_apply_report
+from bot.rendering import render_apply_report, render_diff_markdown
 
 
 def test_render_apply_report_includes_skipped_section() -> None:
@@ -42,3 +43,29 @@ def test_render_apply_report_localizes_headings_for_japanese() -> None:
     markdown = render_apply_report(report, locale="ja")
 
     assert "## 適用結果" in markdown
+
+
+def test_render_diff_markdown_uses_spaced_table_separator() -> None:
+    markdown = render_diff_markdown(
+        DiffResult(
+            summary={
+                "Create": 1,
+                "Update": 0,
+                "Delete": 0,
+                "Move": 0,
+                "Reorder": 0,
+            },
+            changes=[
+                DiffChange(
+                    action="Create",
+                    target_type="role",
+                    target_id="100",
+                    before=None,
+                    after={"name": "Ops"},
+                    risk="low",
+                )
+            ],
+        )
+    )
+
+    assert "| --- | --- | --- | --- | --- | --- |" in markdown

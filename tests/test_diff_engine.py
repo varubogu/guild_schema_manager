@@ -135,6 +135,98 @@ def test_name_only_duplicate_match_raises_error() -> None:
         diff_schemas(current, desired)
 
 
+def test_name_only_duplicate_match_reports_multiple_errors() -> None:
+    current_payload = base_payload()
+    current_payload["roles"] = [
+        {"name": "Same", "permissions": []},
+        {"name": "Same", "permissions": []},
+    ]
+    current = schema(current_payload)
+
+    desired_payload = base_payload()
+    desired_payload["roles"] = [
+        {"name": "Same", "permissions": ["manage_channels"]},
+        {"name": "Same", "permissions": ["mute_members"]},
+    ]
+    desired = schema(desired_payload)
+
+    with pytest.raises(DiffValidationError) as exc:
+        diff_schemas(current, desired)
+
+    assert str(exc.value).count("name-only duplicate match in role: 'Same'") == 2
+
+
+def test_name_only_duplicate_match_can_be_treated_as_unmatched() -> None:
+    current_payload = base_payload()
+    current_payload["roles"] = [
+        {"name": "Same", "permissions": []},
+        {"name": "Same", "permissions": []},
+    ]
+    current = schema(current_payload)
+
+    desired_payload = base_payload()
+    desired_payload["roles"] = [{"name": "Same", "permissions": ["manage_channels"]}]
+    desired = schema(desired_payload)
+
+    result = diff_schemas(current, desired, allow_ambiguous_name_match=True)
+
+    assert result.summary["Update"] == 1
+    assert result.summary["Delete"] == 1
+
+
+def test_channel_name_match_uses_parent_and_type_scope() -> None:
+    current_payload = base_payload()
+    current_payload["categories"] = [
+        {"id": "200", "name": "A", "position": 0, "overwrites": []},
+        {"id": "201", "name": "B", "position": 1, "overwrites": []},
+    ]
+    current_payload["channels"] = [
+        {
+            "name": "general",
+            "type": "text",
+            "parent_id": "200",
+            "topic": "topic-a",
+            "overwrites": [],
+        },
+        {
+            "name": "general",
+            "type": "text",
+            "parent_id": "201",
+            "topic": "topic-b",
+            "overwrites": [],
+        },
+    ]
+    current = schema(current_payload)
+
+    desired_payload = base_payload()
+    desired_payload["categories"] = current_payload["categories"]
+    desired_payload["channels"] = [
+        {
+            "name": "general",
+            "type": "text",
+            "parent_id": "200",
+            "topic": "patched-a",
+            "overwrites": [],
+        },
+        {
+            "name": "general",
+            "type": "text",
+            "parent_id": "201",
+            "topic": "topic-b",
+            "overwrites": [],
+        },
+    ]
+    desired = schema(desired_payload)
+
+    result = diff_schemas(current, desired)
+
+    updates = [
+        c for c in result.changes if c.action == "Update" and c.target_type == "channel"
+    ]
+    assert len(updates) == 1
+    assert updates[0].after == {"topic": "patched-a"}
+
+
 def test_overwrite_add_update_delete_diff_detected() -> None:
     current_payload = base_payload()
     current_payload["categories"][0]["overwrites"] = [

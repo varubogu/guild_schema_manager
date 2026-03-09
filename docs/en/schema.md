@@ -54,12 +54,16 @@ channels:
 - If `id` exists in file, object identity is determined by `id` in default mode.
 - If uploaded `guild.id` differs from the current guild and the user explicitly continues, matching switches to name-first for roles/categories/channels.
 - In name-first mode, if a unique name match is not found and `id` exists, `id` is used as fallback.
+- For channels, name-based matching checks parent scope and channel type in addition to name.
+- If channels are still duplicated under the same parent scope/type/name, matching uses deterministic internal temporary ordering to distinguish entries.
 - `name` is treated as mutable data and can be updated.
 - If `id` is missing, fallback matching uses `name` within the same object scope.
 
 ## Name-Only Behavior
 - Unique name match: treated as update target.
-- Multiple objects with same name in scope: validation error.
+- Multiple objects with same name in scope:
+  - `/schema diff`: comparison continues and treats ambiguous entries as unmatched differences.
+  - `/schema apply`: validation error.
 - No name match: treated as create.
 
 ## Input Mode Behavior (`/schema diff`, `/schema apply`)
@@ -68,6 +72,7 @@ channels:
 - In patch mode, omitted entities in a listed section are kept as current state (no delete-by-omission).
 - `file_trust_mode=true`: uploaded file is parsed as full schema source-of-truth.
 - In trust mode, omitted entities are interpreted as delete intent by diff.
+- `/schema diff` validates YAML shape and supported schema keys/types, then continues comparison as much as possible even when matching is ambiguous.
 
 ## Managed Entities
 - Roles.

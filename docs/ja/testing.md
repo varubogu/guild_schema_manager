@@ -30,6 +30,7 @@
 15. Discord API 部分失敗を `failed[]` に分離し、成功分は `applied[]` に残す。
 16. Bot 再起動で保留確認プランが失効。
 17. `guild.id` 不一致の続行承認時は roles/categories/channels の同一判定を name 優先へ切り替える。
+18. `/schema diff` では name 一致が曖昧でも比較を継続し、差異として報告する。
 
 ## モック戦略
 - discord.py の HTTP/guild 境界をモック。

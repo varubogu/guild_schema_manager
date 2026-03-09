@@ -58,7 +58,7 @@ def render_diff_markdown(
         f"{t('render.diff.column.before', locale)} | "
         f"{t('render.diff.column.after', locale)} |\n"
     )
-    out.write("|---|---|---|---|---|---|\n")
+    out.write("| --- | --- | --- | --- | --- | --- |\n")
     for change in diff_result.changes:
         action = action_labels.get(change.action, change.action)
         target_type = target_labels.get(change.target_type, change.target_type)
