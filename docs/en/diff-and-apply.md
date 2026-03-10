@@ -42,6 +42,7 @@ Example table columns:
 - In trust mode, omission in uploaded file generates delete diffs.
 - In `/schema diff`, ambiguous name matches are treated as differences instead of immediate validation failure, so comparison can continue.
 - Channel name-based matching uses parent scope and channel type before deciding ambiguity.
+- Roles marked with `bot_managed: true` are displayed in diff/preview normally, but apply execution excludes those role operations.
 
 ## Result Delivery
 - Diff results are always attached as downloadable Markdown file.
@@ -77,6 +78,7 @@ Example table columns:
   - `applied[]`
   - `failed[]`
   - `skipped[]`
+- Excluded bot-managed role operations are recorded in `skipped[]` with reason `bot_managed_role`.
 
 ## Restart and Session Expiry
 - Pending plans are memory-only.

@@ -51,6 +51,7 @@ class GuildInfo:
 class RoleSchema:
     name: str
     id: str | None = None
+    bot_managed: bool = False
     color: int = 0
     hoist: bool = False
     mentionable: bool = False

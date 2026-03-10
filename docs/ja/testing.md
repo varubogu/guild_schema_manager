@@ -31,6 +31,7 @@
 16. Bot 再起動で保留確認プランが失効。
 17. `guild.id` 不一致の続行承認時は roles/categories/channels の同一判定を name 優先へ切り替える。
 18. `/schema diff` では name 一致が曖昧でも比較を継続し、差異として報告する。
+19. `bot_managed=true` のロール変更は diff/preview に表示され、apply では `skipped[]` に理由 `bot_managed_role` で記録される。
 
 ## モック戦略
 - discord.py の HTTP/guild 境界をモック。

@@ -57,6 +57,7 @@ def _role_to_schema(role: object) -> RoleSchema:
     return RoleSchema(
         id=str(getattr(role, "id")),
         name=str(getattr(role, "name")),
+        bot_managed=_is_bot_managed_role(role),
         color=int(color_value),
         hoist=bool(getattr(role, "hoist", False)),
         mentionable=bool(getattr(role, "mentionable", False)),
@@ -176,3 +177,10 @@ def _is_object_pair(value: object) -> TypeGuard[tuple[object, object]]:
     if not isinstance(value, tuple):
         return False
     return len(cast(tuple[object, ...], value)) == 2
+
+
+def _is_bot_managed_role(role: object) -> bool:
+    tags = getattr(role, "tags", None)
+    if tags is None:
+        return False
+    return getattr(tags, "bot_id", None) is not None

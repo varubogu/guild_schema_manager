@@ -25,6 +25,24 @@ def execute_plan(
     report = ApplyReport(backup_file=backup_file)
 
     for operation in plan.operations:
+        if operation.skip_reason:
+            logger.warning(
+                "apply.operation.skipped operation_id=%s action=%s target_type=%s target_id=%s reason=%s",
+                operation.operation_id,
+                operation.action,
+                operation.target_type,
+                operation.target_id,
+                operation.skip_reason,
+            )
+            report.skipped.append(
+                {
+                    "operation_id": operation.operation_id,
+                    "target_type": operation.target_type,
+                    "target_id": operation.target_id,
+                    "reason": operation.skip_reason,
+                }
+            )
+            continue
         try:
             executor.execute(operation)
         except SkipOperationError as exc:
@@ -82,6 +100,24 @@ async def execute_plan_async(
     report = ApplyReport(backup_file=backup_file)
 
     for operation in plan.operations:
+        if operation.skip_reason:
+            logger.warning(
+                "apply.operation.skipped operation_id=%s action=%s target_type=%s target_id=%s reason=%s",
+                operation.operation_id,
+                operation.action,
+                operation.target_type,
+                operation.target_id,
+                operation.skip_reason,
+            )
+            report.skipped.append(
+                {
+                    "operation_id": operation.operation_id,
+                    "target_type": operation.target_type,
+                    "target_id": operation.target_id,
+                    "reason": operation.skip_reason,
+                }
+            )
+            continue
         try:
             await executor.execute(operation)
         except SkipOperationError as exc:

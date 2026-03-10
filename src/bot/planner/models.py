@@ -24,6 +24,7 @@ class ApplyOperation:
     before: dict[str, Any] | None
     after: dict[str, Any] | None
     risk: str
+    skip_reason: str | None = None
 
 
 @dataclass(slots=True)
@@ -40,7 +41,12 @@ class ApplyReport:
     skipped: list[dict[str, Any]] = field(default_factory=_new_failed_item_list)
 
 
-def operation_from_change(change: DiffChange, index: int) -> ApplyOperation:
+def operation_from_change(
+    change: DiffChange,
+    index: int,
+    *,
+    skip_reason: str | None = None,
+) -> ApplyOperation:
     return ApplyOperation(
         operation_id=f"op-{index}",
         action=change.action,
@@ -49,4 +55,5 @@ def operation_from_change(change: DiffChange, index: int) -> ApplyOperation:
         before=change.before,
         after=change.after,
         risk=change.risk,
+        skip_reason=skip_reason,
     )

@@ -35,6 +35,7 @@ Field behavior:
 - `id` is always exported.
 - `name` is exported only when `include_name=true`.
 - Role `permissions` are exported only when `include_permissions=true`.
+- Role `bot_managed` is exported only when `include_other_settings=true`.
 - Category/channel role-target overwrites are exported only when `include_role_overwrites=true`.
 - Member-target overwrites and remaining attributes (`type`, `position`, `topic`, `hoist`, etc.) are exported only when `include_other_settings=true`.
 
@@ -105,6 +106,7 @@ Execution rules:
 - For category delete targets, child channels are moved to `GSM-Dustbox` and the category is archived for manual cleanup.
 - `GSM-Dustbox` is created with admin-only visibility if it does not exist.
 - Role delete targets are reported for manual deletion (no hard delete by bot).
+- Role operations (`Create`/`Update`/`Delete`/`Reorder`) where `bot_managed=true` are excluded from execution and reported as `skipped[]` with reason `bot_managed_role`.
 - Expired confirmation button returns timeout message and requires rerun.
 - Any apply request without diff changes returns no-op summary.
 

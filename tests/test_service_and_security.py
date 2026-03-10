@@ -225,6 +225,18 @@ def test_export_default_includes_role_and_member_overwrites() -> None:
     }
 
 
+def test_export_includes_bot_managed_for_roles_when_other_settings_enabled() -> None:
+    payload = base_schema_dict()
+    payload["roles"][0]["bot_managed"] = True
+    current = parse_schema_dict(payload)
+    srv = service()
+
+    response = srv.export_schema(current, invoker_is_admin=True)
+    exported = yaml.safe_load(response.file.content)
+
+    assert exported["roles"][0]["bot_managed"] is True
+
+
 def test_export_role_overwrites_option_filters_to_role_targets_only() -> None:
     current = parse_schema_dict(schema_with_overwrites_dict())
     srv = service()
@@ -378,6 +390,50 @@ def test_partial_failure_reporting_separates_failed_and_applied() -> None:
     assert response.report is not None
     assert len(response.report.failed) == 1
     assert len(response.report.applied) >= 1
+
+
+def test_apply_skips_bot_managed_role_operations_with_reason() -> None:
+    current_payload = base_schema_dict()
+    current_payload["roles"][0]["bot_managed"] = True
+    current = parse_schema_dict(current_payload)
+    uploaded = yaml.safe_dump(
+        {
+            "roles": [
+                {
+                    "id": "100",
+                    "permissions": ["manage_channels", "mute_members"],
+                }
+            ]
+        },
+        sort_keys=False,
+    ).encode("utf-8")
+
+    executor = CountingExecutor()
+    srv = SchemaCommandService(
+        session_store=InMemorySessionStore(ttl_seconds=600),
+        executor_factory=lambda: executor,
+    )
+
+    preview = srv.apply_schema_preview(
+        current,
+        uploaded,
+        invoker_is_admin=True,
+        invoker_id=10,
+    )
+    assert preview.confirmation_token is not None
+    assert "apply_excluded_reason" in preview.markdown
+
+    response = srv.confirm_apply(
+        preview.confirmation_token or "",
+        invoker_id=10,
+        current=current,
+    )
+
+    assert response.report is not None
+    assert executor.calls == 0
+    assert len(response.report.applied) == 0
+    assert len(response.report.skipped) == 1
+    assert response.report.skipped[0]["reason"] == "bot_managed_role"
 
 
 def test_confirmation_expiry_returns_timeout_message() -> None:

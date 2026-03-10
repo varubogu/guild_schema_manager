@@ -381,6 +381,7 @@ def _build_export_payload(
         if selection.include_permissions:
             role_payload["permissions"] = role.permissions
         if selection.include_other_settings:
+            role_payload["bot_managed"] = role.bot_managed
             role_payload["color"] = role.color
             role_payload["hoist"] = role.hoist
             role_payload["mentionable"] = role.mentionable
@@ -966,6 +967,7 @@ def _informational_change(
 def _role_exact(current: RoleSchema, desired: RoleSchema) -> bool:
     return (
         current.name == desired.name
+        and current.bot_managed == desired.bot_managed
         and current.color == desired.color
         and current.hoist == desired.hoist
         and current.mentionable == desired.mentionable

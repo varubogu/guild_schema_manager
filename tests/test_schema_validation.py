@@ -66,6 +66,25 @@ def test_duplicate_role_ids_rejected() -> None:
     assert "duplicate explicit IDs" in str(exc.value)
 
 
+def test_role_bot_managed_accepts_boolean() -> None:
+    payload = base_payload()
+    payload["roles"][0]["bot_managed"] = True
+
+    parsed = parse_schema_dict(payload)
+
+    assert parsed.roles[0].bot_managed is True
+
+
+def test_role_bot_managed_rejects_non_boolean() -> None:
+    payload = base_payload()
+    payload["roles"][0]["bot_managed"] = "yes"
+
+    with pytest.raises(SchemaValidationError) as exc:
+        parse_schema_dict(payload)
+
+    assert "roles[0].bot_managed" in str(exc.value)
+
+
 def test_schema_to_yaml_preserves_japanese_characters() -> None:
     payload = base_payload()
     payload["guild"]["name"] = "日本語サーバー"

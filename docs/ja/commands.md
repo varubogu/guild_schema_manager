@@ -35,6 +35,7 @@
 - `id` は常に出力する。
 - `name` は `include_name=true` の場合のみ出力する。
 - ロール `permissions` は `include_permissions=true` の場合のみ出力する。
+- ロール `bot_managed` は `include_other_settings=true` の場合のみ出力する。
 - カテゴリ/チャンネルの role 対象 overwrite は `include_role_overwrites=true` の場合のみ出力する。
 - member 対象 overwrite と、それ以外の属性（`type`、`position`、`topic`、`hoist` など）は `include_other_settings=true` の場合のみ出力する。
 
@@ -105,6 +106,7 @@
 - カテゴリ削除は子チャンネルを `GSM-Dustbox` へ移動し、カテゴリ本体は手動削除前提でアーカイブする。
 - `GSM-Dustbox` がなければ管理者のみ閲覧可能な権限で自動作成する。
 - ロール削除は Bot がハード削除せず、手動削除対象として報告する。
+- `bot_managed=true` のロール `Create`/`Update`/`Delete`/`Reorder` は実行対象外とし、`skipped[]` に理由 `bot_managed_role` で記録する。
 - 有効期限切れ時はタイムアウトとして再実行を要求。
 - 差分なしの場合は no-op 要約を返す。
 

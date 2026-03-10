@@ -19,6 +19,7 @@ guild:
 roles:
   - id: "223456789012345678"
     name: "Moderators"
+    bot_managed: false
     color: 3447003
     hoist: true
     mentionable: false
@@ -65,6 +66,12 @@ channels:
   - `/schema diff`: comparison continues and treats ambiguous entries as unmatched differences.
   - `/schema apply`: validation error.
 - No name match: treated as create.
+
+## Role Bot Management Flag
+- `roles[].bot_managed` is an optional boolean (default: `false`).
+- `export` sets `bot_managed: true` for roles that have Discord role tag `bot_id`.
+- Diffs for `bot_managed: true` roles are still shown in `/schema diff` and `/schema apply` preview.
+- During `/schema apply`, role `Create`/`Update`/`Delete`/`Reorder` operations with `bot_managed: true` are excluded from execution and reported in `skipped[]` with reason `bot_managed_role`.
 
 ## Input Mode Behavior (`/schema diff`, `/schema apply`)
 - `file_trust_mode=false` (default): uploaded files may be partial and are merged as patch.

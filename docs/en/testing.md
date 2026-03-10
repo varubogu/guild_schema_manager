@@ -31,6 +31,7 @@
 16. Bot restart invalidates pending confirmation plans.
 17. When `guild.id` mismatch continuation is approved, matching switches to name-first for roles/categories/channels.
 18. `/schema diff` continues and reports differences even when name matching is ambiguous.
+19. Role changes with `bot_managed=true` appear in diff/preview and are recorded in `skipped[]` with reason `bot_managed_role` during apply.
 
 ## Mocking Strategy
 - Mock discord.py HTTP/guild objects at service boundary.

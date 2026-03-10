@@ -94,6 +94,30 @@ def test_name_priority_matches_by_name_when_ids_differ() -> None:
     assert name_priority_result.summary["Delete"] == 0
 
 
+def test_bot_managed_role_update_is_marked_apply_excluded() -> None:
+    current_payload = base_payload()
+    current_payload["roles"][0]["bot_managed"] = True
+    current = schema(current_payload)
+
+    desired_payload = base_payload()
+    desired_payload["roles"][0]["bot_managed"] = True
+    desired_payload["roles"][0]["permissions"] = ["manage_channels", "mute_members"]
+    desired = schema(desired_payload)
+
+    result = diff_schemas(current, desired)
+
+    updates = [
+        change
+        for change in result.changes
+        if change.action == "Update" and change.target_type == "role"
+    ]
+    assert len(updates) == 1
+    assert updates[0].before is not None
+    assert updates[0].after is not None
+    assert updates[0].before["apply_excluded_reason"] == "bot_managed_role"
+    assert updates[0].after["apply_excluded_reason"] == "bot_managed_role"
+
+
 def test_name_priority_does_not_fallback_to_id_for_all_entities() -> None:
     current = schema(base_payload())
 

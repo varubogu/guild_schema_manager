@@ -19,6 +19,7 @@ guild:
 roles:
   - id: "223456789012345678"
     name: "Moderators"
+    bot_managed: false
     color: 3447003
     hoist: true
     mentionable: false
@@ -65,6 +66,12 @@ channels:
   - `/schema diff`: 比較を継続し、曖昧な項目は未一致の差異として扱う。
   - `/schema apply`: 検証エラー。
 - 一致なし: 新規作成扱い。
+
+## ロールの Bot 管理フラグ
+- `roles[].bot_managed` は任意の boolean（既定: `false`）。
+- `export` は Discord role tag `bot_id` を持つロールを `bot_managed: true` で出力する。
+- `bot_managed: true` のロール差分は `/schema diff` と `/schema apply` プレビューに通常どおり表示する。
+- `/schema apply` では `bot_managed: true` のロール `Create`/`Update`/`Delete`/`Reorder` は実行対象外とし、`skipped[]` に理由 `bot_managed_role` で記録する。
 
 ## 入力モードの挙動（`/schema diff`、`/schema apply`）
 - `file_trust_mode=false`（既定）: アップロードを部分パッチとしてマージする。

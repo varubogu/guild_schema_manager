@@ -28,6 +28,7 @@ _ALLOWED_GUILD_KEYS = {"id", "name"}
 _ALLOWED_ROLE_KEYS = {
     "id",
     "name",
+    "bot_managed",
     "color",
     "hoist",
     "mentionable",
@@ -560,6 +561,9 @@ def _parse_roles(payload: object) -> list[RoleSchema]:
         role = RoleSchema(
             id=_opt_str(role_payload.get("id"), f"{path}.id"),
             name=_required_str(role_payload.get("name"), f"{path}.name"),
+            bot_managed=_opt_bool(
+                role_payload.get("bot_managed", False), f"{path}.bot_managed"
+            ),
             color=_opt_int(role_payload.get("color", 0), f"{path}.color"),
             hoist=_opt_bool(role_payload.get("hoist", False), f"{path}.hoist"),
             mentionable=_opt_bool(

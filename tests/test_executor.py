@@ -29,6 +29,11 @@ class AsyncMixedExecutor:
             raise RuntimeError("boom")
 
 
+class MustNotCallExecutor:
+    def execute(self, operation: ApplyOperation) -> None:
+        raise AssertionError(f"unexpected execute call for {operation.operation_id}")
+
+
 def test_execute_plan_collects_partial_failures() -> None:
     plan = ApplyPlan(
         operations=[
@@ -58,6 +63,30 @@ def test_execute_plan_collects_partial_failures() -> None:
     assert len(report.applied) == 1
     assert len(report.failed) == 1
     assert report.failed[0]["operation_id"] == "2"
+
+
+def test_execute_plan_skips_operation_with_skip_reason_without_executor_call() -> None:
+    plan = ApplyPlan(
+        operations=[
+            ApplyOperation(
+                operation_id="1",
+                action="Update",
+                target_type="role",
+                target_id="100",
+                before={"name": "old"},
+                after={"name": "new"},
+                risk="low",
+                skip_reason="bot_managed_role",
+            )
+        ]
+    )
+
+    report = execute_plan(plan, b"backup", MustNotCallExecutor())
+
+    assert len(report.applied) == 0
+    assert len(report.failed) == 0
+    assert len(report.skipped) == 1
+    assert report.skipped[0]["reason"] == "bot_managed_role"
 
 
 def test_execute_plan_logs_failed_operation(caplog: pytest.LogCaptureFixture) -> None:

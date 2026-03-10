@@ -10,6 +10,8 @@ from .errors import DiffValidationError
 from .models import DiffChange, DiffResult
 
 T = TypeVar("T", RoleSchema, CategorySchema, ChannelSchema)
+_APPLY_EXCLUDED_REASON_KEY = "apply_excluded_reason"
+_BOT_MANAGED_SKIP_REASON = "bot_managed_role"
 
 
 def diff_schemas(
@@ -91,17 +93,23 @@ def _diff_section(
     changes: list[DiffChange] = []
 
     for desired_item in creates:
+        after_payload = _create_payload_for_change(
+            desired_item,
+            target_type=target_type,
+            prefer_name_matching=prefer_name_matching,
+        )
+        if target_type == "role" and isinstance(desired_item, RoleSchema):
+            after_payload = _annotate_role_apply_excluded(
+                after_payload,
+                role=desired_item,
+            )
         changes.append(
             DiffChange(
                 action="Create",
                 target_type=target_type,  # type: ignore[arg-type]
                 target_id=desired_item.id,
                 before=None,
-                after=_create_payload_for_change(
-                    desired_item,
-                    target_type=target_type,
-                    prefer_name_matching=prefer_name_matching,
-                ),
+                after=after_payload,
                 risk="low",
                 before_name=None,
                 after_name=desired_item.name,
@@ -109,12 +117,18 @@ def _diff_section(
         )
 
     for current_item in deletes:
+        before_payload = _safe_payload(current_item)
+        if target_type == "role" and isinstance(current_item, RoleSchema):
+            before_payload = _annotate_role_apply_excluded(
+                before_payload,
+                role=current_item,
+            )
         changes.append(
             DiffChange(
                 action="Delete",
                 target_type=target_type,  # type: ignore[arg-type]
                 target_id=current_item.id,
-                before=_safe_payload(current_item),
+                before=before_payload,
                 after=None,
                 risk="high",
                 before_name=current_item.name,
@@ -302,20 +316,31 @@ def _compare_role(current: RoleSchema, desired: RoleSchema) -> list[DiffChange]:
     changes: list[DiffChange] = []
     before_payload = _safe_payload(current)
     after_payload = _safe_payload(desired)
+    is_bot_managed = current.bot_managed or desired.bot_managed
 
     changed_fields = _changed_fields(
         before_payload,
         after_payload,
-        ["name", "color", "hoist", "mentionable", "permissions"],
+        ["name", "bot_managed", "color", "hoist", "mentionable", "permissions"],
     )
     if changed_fields:
+        before_change, after_change = changed_fields
+        if is_bot_managed:
+            before_change = _annotate_role_apply_excluded(
+                before_change,
+                role=current,
+            )
+            after_change = _annotate_role_apply_excluded(
+                after_change,
+                role=desired,
+            )
         changes.append(
             DiffChange(
                 action="Update",
                 target_type="role",
                 target_id=current.id or desired.id,
-                before=changed_fields[0],
-                after=changed_fields[1],
+                before=before_change,
+                after=after_change,
                 risk="medium",
                 before_name=current.name,
                 after_name=desired.name,
@@ -323,13 +348,24 @@ def _compare_role(current: RoleSchema, desired: RoleSchema) -> list[DiffChange]:
         )
 
     if current.position != desired.position:
+        before_position_payload: dict[str, Any] = {"position": current.position}
+        after_position_payload: dict[str, Any] = {"position": desired.position}
+        if is_bot_managed:
+            before_position_payload = _annotate_role_apply_excluded(
+                before_position_payload,
+                role=current,
+            )
+            after_position_payload = _annotate_role_apply_excluded(
+                after_position_payload,
+                role=desired,
+            )
         changes.append(
             DiffChange(
                 action="Reorder",
                 target_type="role",
                 target_id=current.id or desired.id,
-                before={"position": current.position},
-                after={"position": desired.position},
+                before=before_position_payload,
+                after=after_position_payload,
                 risk="low",
                 before_name=current.name,
                 after_name=desired.name,
@@ -587,4 +623,16 @@ def _safe_payload(value: Any) -> dict[str, Any]:
         payload["allow"] = sorted(payload["allow"])
     if "deny" in payload:
         payload["deny"] = sorted(payload["deny"])
+    return payload
+
+
+def _annotate_role_apply_excluded(
+    payload: dict[str, Any],
+    *,
+    role: RoleSchema,
+) -> dict[str, Any]:
+    if not role.bot_managed:
+        return payload
+    payload["bot_managed"] = True
+    payload[_APPLY_EXCLUDED_REASON_KEY] = _BOT_MANAGED_SKIP_REASON
     return payload
