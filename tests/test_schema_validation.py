@@ -143,6 +143,35 @@ def test_patch_yaml_can_prefer_name_matching_when_requested() -> None:
     ]
 
 
+def test_patch_yaml_role_name_match_prefers_same_bot_managed_candidate() -> None:
+    current_payload = base_payload()
+    current_payload["roles"] = [
+        {"id": "10", "name": "BotRole", "bot_managed": False, "permissions": []},
+        {"id": "11", "name": "BotRole", "bot_managed": True, "permissions": []},
+    ]
+    current = parse_schema_dict(current_payload)
+    uploaded = yaml.safe_dump(
+        {
+            "roles": [
+                {
+                    "id": "999",
+                    "name": "BotRole",
+                    "bot_managed": True,
+                    "permissions": ["manage_channels"],
+                }
+            ]
+        },
+        sort_keys=False,
+    ).encode("utf-8")
+
+    merged = parse_schema_patch_yaml(uploaded, current, prefer_name_matching=True)
+
+    assert len(merged.roles) == 2
+    assert merged.roles[1].id == "999"
+    assert merged.roles[1].bot_managed is True
+    assert merged.roles[1].permissions == ["manage_channels"]
+
+
 def test_patch_yaml_reports_multiple_duplicate_name_errors() -> None:
     current_payload = base_payload()
     current_payload["channels"] = [

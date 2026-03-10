@@ -11,6 +11,21 @@ Primary runtime components:
 - Confirmation session store (in-memory): keeps short-lived pending apply plans.
 - Result renderer: produces Markdown summaries and attachment outputs.
 
+## Source Structure (Cog + UseCase)
+- Runtime bootstrap and dependency wiring: `src/bot/app.py`
+- Slash command cog: `src/bot/commands/cogs/schema_cog.py`
+- Event cog (`on_ready`): `src/bot/commands/cogs/events_cog.py`
+- Interaction views (invoker-only confirmation UI): `src/bot/commands/views/*`
+- Interaction orchestration handlers: `src/bot/commands/handlers/schema_handlers.py`
+- Localization translator and command metadata: `src/bot/commands/translator.py`
+- Use case layer (command business logic): `src/bot/usecases/schema/service.py`
+- Compatibility re-export for legacy imports: `src/bot/commands/service.py`
+
+Dependency direction:
+1. Cog / View layer (`commands/*`) handles Discord I/O only.
+2. UseCase layer (`usecases/*`) executes export/diff/apply logic.
+3. Domain modules (`schema`, `snapshot`, `diff`, `planner`, `executor`, `rendering`, `security`) provide pure processing and mutation primitives.
+
 ## Data Flow
 ### `/schema export`
 1. Verify command invoker has guild administrator permission.

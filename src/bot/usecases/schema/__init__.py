@@ -1,9 +1,4 @@
-"""Backward-compatible re-export of schema use cases.
-
-The canonical implementation lives under ``bot.usecases.schema``.
-"""
-
-from bot.usecases.schema import (
+from .service import (
     ApplyExecutionResponse,
     ApplyPreviewResponse,
     DiffResponse,

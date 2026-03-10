@@ -180,6 +180,10 @@ def _is_object_pair(value: object) -> TypeGuard[tuple[object, object]]:
 
 
 def _is_bot_managed_role(role: object) -> bool:
+    is_bot_managed = getattr(role, "is_bot_managed", None)
+    if callable(is_bot_managed):
+        return bool(is_bot_managed())
+
     tags = getattr(role, "tags", None)
     if tags is None:
         return False

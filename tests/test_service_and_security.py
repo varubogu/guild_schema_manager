@@ -421,7 +421,8 @@ def test_apply_skips_bot_managed_role_operations_with_reason() -> None:
         invoker_id=10,
     )
     assert preview.confirmation_token is not None
-    assert "apply_excluded_reason" in preview.markdown
+    assert "apply_excluded_reason" not in preview.markdown
+    assert "bot_managed" in preview.markdown
 
     response = srv.confirm_apply(
         preview.confirmation_token or "",

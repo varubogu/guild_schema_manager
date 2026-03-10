@@ -22,6 +22,7 @@
 - `before`
 - `after`
 - `risk`
+- `botが管理している項目`（role のみ表示）
 
 ## 適用フロー
 `/schema apply` は1コマンドで確認付き実行:
@@ -42,7 +43,10 @@
 - 信頼モードでは未記載リソースに対して削除差分を生成する。
 - `/schema diff` では name 一致が曖昧でも即時エラーにせず、差異として比較を継続する。
 - channels の name ベース一致では、親カテゴリスコープとチャンネル種別を先に照合する。
-- `bot_managed: true` のロールは diff/preview には通常表示するが、apply 実行では該当ロール操作を除外する。
+- name 優先モードで同名ロールが複数ある場合、アップロード側に `bot_managed` が含まれていれば同じ `bot_managed` 値の候補を優先して一致判定する。
+- `bot_managed` は適用除外メタ情報として扱い、`bot_managed` の差分のみでは `Update` を生成しない。
+- `bot_managed: true` のロールは他フィールド差分がある場合に diff/preview へ表示し、apply 実行では該当ロール操作を除外する。
+- `apply_excluded_reason` などの内部メタ情報は diff テーブルの `before`/`after` には表示しない。
 
 ## 結果返却
 - diff 結果は常にダウンロード可能な Markdown ファイルとして添付する。

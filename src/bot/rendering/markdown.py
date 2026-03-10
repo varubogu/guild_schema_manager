@@ -1,11 +1,15 @@
 from __future__ import annotations
 
 from io import StringIO
+from typing import Any
 from typing import cast
 
 from bot.diff.models import DiffResult
 from bot.localization import SupportedLocale, t
 from bot.planner.models import ApplyReport
+
+_APPLY_EXCLUDED_REASON_KEY = "apply_excluded_reason"
+_BOT_MANAGED_SKIP_REASON = "bot_managed_role"
 
 
 def render_diff_markdown(
@@ -60,30 +64,45 @@ def render_diff_markdown(
         f"{t('render.diff.column.before_name', locale)} | "
         f"{t('render.diff.column.after_name', locale)} | "
         f"{t('render.diff.column.risk', locale)} | "
+        f"{t('render.diff.column.bot_managed', locale)} | "
         f"{t('render.diff.column.before', locale)} | "
         f"{t('render.diff.column.after', locale)} |\n"
     )
-    out.write("| --- | --- | --- | --- | --- | --- | --- | --- |\n")
+    out.write("| --- | --- | --- | --- | --- | --- | --- | --- | --- |\n")
     for change in diff_result.changes:
         action = action_labels.get(change.action, change.action)
         target_type = target_labels.get(change.target_type, change.target_type)
         risk = risk_labels.get(change.risk, change.risk)
+        bot_managed = _role_bot_managed_display(
+            change.target_type,
+            change.before,
+            change.after,
+        )
+        before_payload = _payload_for_display(change.target_type, change.before)
+        after_payload = _payload_for_display(change.target_type, change.after)
         before_name = _display_name(change.before_name, change.before)
         after_name = _display_name(change.after_name, change.after)
         out.write(
             f"| {action} | {target_type} | {change.target_id or '-'} | "
-            f"{before_name} | {after_name} | {risk} | "
-            f"`{_compact(change.before)}` | `{_compact(change.after)}` |\n"
+            f"{before_name} | {after_name} | {risk} | {bot_managed} | "
+            f"`{_compact(before_payload)}` | `{_compact(after_payload)}` |\n"
         )
     for change in diff_result.informational_changes:
         action = action_labels.get(change.action, change.action)
         target_type = target_labels.get(change.target_type, change.target_type)
+        bot_managed = _role_bot_managed_display(
+            change.target_type,
+            change.before,
+            change.after,
+        )
+        before_payload = _payload_for_display(change.target_type, change.before)
+        after_payload = _payload_for_display(change.target_type, change.after)
         before_name = _display_name(change.before_name, change.before)
         after_name = _display_name(change.after_name, change.after)
         out.write(
             f"| {action} | {target_type} | {change.target_id or '-'} | "
-            f"{before_name} | {after_name} | - | "
-            f"`{_compact(change.before)}` | `{_compact(change.after)}` |\n"
+            f"{before_name} | {after_name} | - | {bot_managed} | "
+            f"`{_compact(before_payload)}` | `{_compact(after_payload)}` |\n"
         )
     return out.getvalue().strip()
 
@@ -158,3 +177,45 @@ def _display_name(name: str | None, payload: object) -> str:
         if isinstance(payload_name, str) and payload_name:
             return payload_name
     return "-"
+
+
+def _role_bot_managed_display(
+    target_type: str,
+    before: dict[str, Any] | None,
+    after: dict[str, Any] | None,
+) -> str:
+    if target_type != "role":
+        return "-"
+    return "true" if _extract_role_bot_managed(before, after) else "false"
+
+
+def _extract_role_bot_managed(
+    before: dict[str, Any] | None,
+    after: dict[str, Any] | None,
+) -> bool:
+    for payload in (after, before):
+        if payload is None:
+            continue
+        bot_managed = payload.get("bot_managed")
+        if isinstance(bot_managed, bool):
+            return bot_managed
+        if payload.get(_APPLY_EXCLUDED_REASON_KEY) == _BOT_MANAGED_SKIP_REASON:
+            return True
+    return False
+
+
+def _payload_for_display(
+    target_type: str,
+    payload: dict[str, Any] | None,
+) -> dict[str, Any] | None:
+    if payload is None:
+        return None
+    if target_type != "role":
+        return payload
+
+    sanitized = dict(payload)
+    sanitized.pop("bot_managed", None)
+    sanitized.pop(_APPLY_EXCLUDED_REASON_KEY, None)
+    if not sanitized:
+        return None
+    return sanitized

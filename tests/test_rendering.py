@@ -70,7 +70,7 @@ def test_render_diff_markdown_uses_spaced_table_separator() -> None:
         )
     )
 
-    assert "| --- | --- | --- | --- | --- | --- | --- | --- |" in markdown
+    assert "| --- | --- | --- | --- | --- | --- | --- | --- | --- |" in markdown
 
 
 def test_render_diff_markdown_includes_before_after_name_columns() -> None:
@@ -99,8 +99,11 @@ def test_render_diff_markdown_includes_before_after_name_columns() -> None:
         locale="ja",
     )
 
-    assert "| target_id | before_name | after_name |" in markdown
-    assert "| 更新 | channel | 300 | 一般 | 一般 | 中 |" in markdown
+    assert (
+        "| target_id | before_name | after_name | risk | botが管理している項目 |"
+        in markdown
+    )
+    assert "| 更新 | channel | 300 | 一般 | 一般 | 中 | - |" in markdown
 
 
 def test_render_diff_markdown_renders_informational_rows() -> None:
@@ -129,4 +132,42 @@ def test_render_diff_markdown_renders_informational_rows() -> None:
     )
 
     assert "No change (undefined in file)" in markdown
-    assert "| role | 100 | Moderators | Moderators | - |" in markdown
+    assert "| role | 100 | Moderators | Moderators | - | false |" in markdown
+
+
+def test_render_diff_markdown_hides_internal_apply_excluded_fields() -> None:
+    markdown = render_diff_markdown(
+        DiffResult(
+            summary={
+                "Create": 0,
+                "Update": 1,
+                "Delete": 0,
+                "Move": 0,
+                "Reorder": 0,
+            },
+            changes=[
+                DiffChange(
+                    action="Update",
+                    target_type="role",
+                    target_id="100",
+                    before={
+                        "permissions": ["manage_channels"],
+                        "bot_managed": True,
+                        "apply_excluded_reason": "bot_managed_role",
+                    },
+                    after={
+                        "permissions": ["manage_channels", "mute_members"],
+                        "bot_managed": True,
+                        "apply_excluded_reason": "bot_managed_role",
+                    },
+                    risk="medium",
+                    before_name="BotRole",
+                    after_name="BotRole",
+                )
+            ],
+        )
+    )
+
+    assert "apply_excluded_reason" not in markdown
+    assert "'bot_managed': True" not in markdown
+    assert "| Update | role | 100 | BotRole | BotRole | medium | true |" in markdown

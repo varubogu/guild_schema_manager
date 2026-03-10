@@ -52,6 +52,7 @@ REQUIRED_MESSAGE_IDS: tuple[str, ...] = (
     "render.diff.column.before_name",
     "render.diff.column.after_name",
     "render.diff.column.risk",
+    "render.diff.column.bot_managed",
     "render.diff.column.before",
     "render.diff.column.after",
     "render.apply.title",

@@ -130,6 +130,9 @@ render.diff.column.after_name:
 render.diff.column.risk:
   ja: "risk"
   en: "risk"
+render.diff.column.bot_managed:
+  ja: "botが管理している項目"
+  en: "bot_managed"
 render.diff.column.before:
   ja: "before"
   en: "before"

@@ -22,6 +22,7 @@ Example table columns:
 - `before`
 - `after`
 - `risk`
+- `bot_managed` (role-only indicator shown as dedicated column)
 
 ## Apply Workflow
 `/schema apply` uses one command with confirmation UI:
@@ -42,7 +43,10 @@ Example table columns:
 - In trust mode, omission in uploaded file generates delete diffs.
 - In `/schema diff`, ambiguous name matches are treated as differences instead of immediate validation failure, so comparison can continue.
 - Channel name-based matching uses parent scope and channel type before deciding ambiguity.
-- Roles marked with `bot_managed: true` are displayed in diff/preview normally, but apply execution excludes those role operations.
+- In name-first mode, when duplicate role names exist and uploaded role includes `bot_managed`, matching prefers candidates with the same `bot_managed` value.
+- `bot_managed` is treated as apply-exclusion metadata; a difference only in `bot_managed` does not create an update diff.
+- Roles marked with `bot_managed: true` are displayed in diff/preview when other fields differ, but apply execution excludes those role operations.
+- Internal apply metadata (for example `apply_excluded_reason`) is not shown in the diff table `before`/`after` fields.
 
 ## Result Delivery
 - Diff results are always attached as downloadable Markdown file.

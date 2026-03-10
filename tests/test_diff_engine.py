@@ -118,6 +118,25 @@ def test_bot_managed_role_update_is_marked_apply_excluded() -> None:
     assert updates[0].after["apply_excluded_reason"] == "bot_managed_role"
 
 
+def test_bot_managed_only_difference_is_not_treated_as_update() -> None:
+    current_payload = base_payload()
+    current_payload["roles"][0]["bot_managed"] = False
+    current = schema(current_payload)
+
+    desired_payload = base_payload()
+    desired_payload["roles"][0]["bot_managed"] = True
+    desired = schema(desired_payload)
+
+    result = diff_schemas(current, desired)
+
+    updates = [
+        change
+        for change in result.changes
+        if change.action == "Update" and change.target_type == "role"
+    ]
+    assert updates == []
+
+
 def test_name_priority_does_not_fallback_to_id_for_all_entities() -> None:
     current = schema(base_payload())
 
@@ -224,6 +243,35 @@ def test_name_only_duplicate_match_can_be_treated_as_unmatched() -> None:
 
     assert result.summary["Update"] == 1
     assert result.summary["Delete"] == 1
+
+
+def test_role_name_match_prefers_same_bot_managed_candidate() -> None:
+    current_payload = base_payload()
+    current_payload["roles"] = [
+        {"id": "100", "name": "SameName", "bot_managed": False, "permissions": []},
+        {"id": "101", "name": "SameName", "bot_managed": True, "permissions": []},
+    ]
+    current = schema(current_payload)
+
+    desired_payload = base_payload()
+    desired_payload["roles"] = [
+        {
+            "id": "999",
+            "name": "SameName",
+            "bot_managed": True,
+            "permissions": ["manage_channels"],
+        }
+    ]
+    desired = schema(desired_payload)
+
+    result = diff_schemas(current, desired, prefer_name_matching=True)
+    updates = [
+        change
+        for change in result.changes
+        if change.action == "Update" and change.target_type == "role"
+    ]
+    assert len(updates) == 1
+    assert updates[0].target_id == "101"
 
 
 def test_channel_name_match_uses_parent_and_type_scope() -> None:

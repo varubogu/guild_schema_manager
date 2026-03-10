@@ -268,6 +268,13 @@ def _find_name_match_index(
         idx for idx in by_name.get(desired_item.name, []) if idx in unmatched_current
     ]
 
+    if target_type == "role" and isinstance(desired_item, RoleSchema):
+        candidates = _prefer_same_bot_managed_role_candidates(
+            current_items=current_items,
+            candidates=candidates,
+            desired_role=desired_item,
+        )
+
     # Channel names can be duplicated across types; narrow by channel type first.
     if target_type == "channel" and isinstance(desired_item, ChannelSchema):
         desired_channel_type = desired_item.type
@@ -321,7 +328,7 @@ def _compare_role(current: RoleSchema, desired: RoleSchema) -> list[DiffChange]:
     changed_fields = _changed_fields(
         before_payload,
         after_payload,
-        ["name", "bot_managed", "color", "hoist", "mentionable", "permissions"],
+        ["name", "color", "hoist", "mentionable", "permissions"],
     )
     if changed_fields:
         before_change, after_change = changed_fields
@@ -636,3 +643,24 @@ def _annotate_role_apply_excluded(
     payload["bot_managed"] = True
     payload[_APPLY_EXCLUDED_REASON_KEY] = _BOT_MANAGED_SKIP_REASON
     return payload
+
+
+def _prefer_same_bot_managed_role_candidates(
+    *,
+    current_items: list[T],
+    candidates: list[int],
+    desired_role: RoleSchema,
+) -> list[int]:
+    if len(candidates) <= 1:
+        return candidates
+    preferred: list[int] = []
+    for idx in candidates:
+        current_item = current_items[idx]
+        if not isinstance(current_item, RoleSchema):
+            continue
+        if current_item.bot_managed != desired_role.bot_managed:
+            continue
+        preferred.append(idx)
+    if preferred:
+        return preferred
+    return candidates

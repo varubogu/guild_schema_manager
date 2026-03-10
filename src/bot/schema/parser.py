@@ -324,6 +324,21 @@ def _find_name_match_index(
                 continue
         all_candidates.append(idx)
 
+    if section == "roles":
+        desired_bot_managed = patch_item.get("bot_managed")
+        if isinstance(desired_bot_managed, bool):
+            preferred_candidates: list[int] = []
+            for candidate in all_candidates:
+                current_item = current_items[candidate]
+                if not isinstance(current_item, dict):
+                    continue
+                current_payload = cast(dict[str, object], current_item)
+                if current_payload.get("bot_managed") != desired_bot_managed:
+                    continue
+                preferred_candidates.append(candidate)
+            if preferred_candidates:
+                all_candidates = preferred_candidates
+
     if len(all_candidates) > 1:
         if allow_ambiguous_name_match:
             for candidate in all_candidates:

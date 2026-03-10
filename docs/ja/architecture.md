@@ -11,6 +11,21 @@
 - 確認セッションストア（メモリ内）: 短命な適用待ちプランを保持。
 - 結果レンダラ: Markdown 要約と添付ファイル出力を生成。
 
+## ソース構造（Cog + UseCase）
+- 起動と依存注入: `src/bot/app.py`
+- Slash コマンド Cog: `src/bot/commands/cogs/schema_cog.py`
+- イベント Cog（`on_ready`）: `src/bot/commands/cogs/events_cog.py`
+- Interaction View（実行者限定の確認 UI）: `src/bot/commands/views/*`
+- Interaction 実行制御ハンドラ: `src/bot/commands/handlers/schema_handlers.py`
+- ローカライズ翻訳器とコマンドメタデータ: `src/bot/commands/translator.py`
+- UseCase 層（コマンドの業務ロジック）: `src/bot/usecases/schema/service.py`
+- 既存 import 互換の再エクスポート: `src/bot/commands/service.py`
+
+依存方向:
+1. Cog / View 層（`commands/*`）は Discord I/O のみを担当する。
+2. UseCase 層（`usecases/*`）が export/diff/apply ロジックを実行する。
+3. ドメインモジュール（`schema`、`snapshot`、`diff`、`planner`、`executor`、`rendering`、`security`）が純粋処理と実行プリミティブを提供する。
+
 ## データフロー
 ### `/schema export`
 1. コマンド実行者がギルド管理者権限を持つか検証。
