@@ -3,7 +3,7 @@
 ## Command System
 - Slash commands only.
 - Command group: `/schema`.
-- Runtime implementation: `SchemaCog` (`src/bot/commands/cogs/schema_cog.py`) + `SchemaCommandService` (`src/bot/usecases/schema/service.py`).
+- Runtime implementation: `SchemaCog` (`src/bot/cogs/commands.py`) + `SchemaCommandService` (`src/bot/usecases/schema/service.py`).
 
 ## Invoker Requirements (All Commands)
 - Command invoker must have guild `Administrator` permission.

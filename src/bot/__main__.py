@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from bot.app import configure_logging, create_client
+from bot.app import create_client
 from bot.config import Settings
+from bot.logging_utils import configure_logging
 
 
 def main() -> None:

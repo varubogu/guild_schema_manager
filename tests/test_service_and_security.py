@@ -8,17 +8,21 @@ from typing import Any
 import pytest
 import yaml
 
-from bot.commands import (
+from bot.usecases.schema import (
     ExportFieldSelection,
     SchemaCommandService,
     extract_uploaded_guild_id,
     overwrite_uploaded_guild_id,
 )
-from bot.executor import OperationExecutor
-from bot.executor.noop import NoopExecutor
-from bot.planner.models import ApplyOperation
-from bot.schema import SchemaValidationError, parse_schema_dict, schema_to_yaml
-from bot.security import AuthorizationError
+from bot.usecases.executor import OperationExecutor
+from bot.usecases.executor.noop import NoopExecutor
+from bot.usecases.planner.models import ApplyOperation
+from bot.usecases.security import AuthorizationError
+from bot.usecases.schema_model import (
+    SchemaValidationError,
+    parse_schema_dict,
+    schema_to_yaml,
+)
 from bot.session_store import InMemorySessionStore
 
 

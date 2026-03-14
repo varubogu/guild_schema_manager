@@ -4,9 +4,9 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from bot.diff.models import DiffResult
-from bot.planner.models import ApplyPlan
-from bot.schema import parse_schema_dict
+from bot.usecases.diff.models import DiffResult
+from bot.usecases.planner.models import ApplyPlan
+from bot.usecases.schema_model import parse_schema_dict
 from bot.session_store import (
     InMemorySessionStore,
     SessionExpiredError,

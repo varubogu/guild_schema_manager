@@ -4,9 +4,9 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from secrets import token_urlsafe
 
-from bot.diff.models import DiffResult
-from bot.planner.models import ApplyPlan
-from bot.schema.models import GuildSchema
+from bot.usecases.diff.models import DiffResult
+from bot.usecases.planner.models import ApplyPlan
+from bot.usecases.schema_model.models import GuildSchema
 
 
 class SessionError(RuntimeError):

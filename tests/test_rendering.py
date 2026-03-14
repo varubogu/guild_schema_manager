@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from bot.diff.models import DiffChange, DiffInformationalChange, DiffResult
-from bot.planner.models import ApplyReport
-from bot.rendering import render_apply_report, render_diff_markdown
+from bot.usecases.diff.models import DiffChange, DiffInformationalChange, DiffResult
+from bot.usecases.planner.models import ApplyReport
+from bot.usecases.rendering import render_apply_report, render_diff_markdown
 
 
 def test_render_apply_report_includes_skipped_section() -> None:

@@ -4,8 +4,8 @@ from typing import Any
 
 import pytest
 
-from bot.diff import DiffValidationError, diff_schemas
-from bot.schema import parse_schema_dict
+from bot.usecases.diff import DiffValidationError, diff_schemas
+from bot.usecases.schema_model import parse_schema_dict
 
 
 def schema(payload: dict[str, Any]):

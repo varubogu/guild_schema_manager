@@ -5,7 +5,7 @@ from typing import Any
 import pytest
 import yaml
 
-from bot.schema import (
+from bot.usecases.schema_model import (
     SchemaValidationError,
     parse_schema_dict,
     parse_schema_patch_yaml,

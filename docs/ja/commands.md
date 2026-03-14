@@ -3,7 +3,7 @@
 ## コマンド体系
 - Slash コマンドのみ。
 - コマンドグループ: `/schema`。
-- 実装構造: `SchemaCog`（`src/bot/commands/cogs/schema_cog.py`）+ `SchemaCommandService`（`src/bot/usecases/schema/service.py`）。
+- 実装構造: `SchemaCog`（`src/bot/cogs/commands.py`）+ `SchemaCommandService`（`src/bot/usecases/schema/service.py`）。
 
 ## 実行者要件（全コマンド共通）
 - コマンド実行者はギルド `Administrator` 権限を持つ必要がある。

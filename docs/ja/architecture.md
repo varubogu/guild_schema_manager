@@ -13,18 +13,21 @@
 
 ## ソース構造（Cog + UseCase）
 - 起動と依存注入: `src/bot/app.py`
-- Slash コマンド Cog: `src/bot/commands/cogs/schema_cog.py`
-- イベント Cog（`on_ready`）: `src/bot/commands/cogs/events_cog.py`
-- Interaction View（実行者限定の確認 UI）: `src/bot/commands/views/*`
-- Interaction 実行制御ハンドラ: `src/bot/commands/handlers/schema_handlers.py`
-- ローカライズ翻訳器とコマンドメタデータ: `src/bot/commands/translator.py`
+- Slash コマンド Cog: `src/bot/cogs/commands/schema.py`
+- イベント Cog（`on_ready`）: `src/bot/cogs/events/on_ready.py`
+- Interaction コンテキスト/レスポンダ/実行制御ハンドラ: `src/bot/interactions/{context.py,responders.py,handlers/*}`
+- Interaction View（実行者限定の確認 UI）: `src/bot/interactions/views/*`
+- ローカライズ翻訳器とコマンドメタデータ: `src/bot/cogs/commands/translator.py`
 - UseCase 層（コマンドの業務ロジック）: `src/bot/usecases/schema/service.py`
-- 既存 import 互換の再エクスポート: `src/bot/commands/service.py`
+- スキーマモデル / パーサ: `src/bot/usecases/schema_model/*`
+- Planner / Security の UseCase: `src/bot/usecases/{planner,security}/*`
+- Snapshot / Diff / Executor / Rendering: `src/bot/usecases/{snapshot,diff,executor,rendering}/*`
 
 依存方向:
-1. Cog / View 層（`commands/*`）は Discord I/O のみを担当する。
-2. UseCase 層（`usecases/*`）が export/diff/apply ロジックを実行する。
-3. ドメインモジュール（`schema`、`snapshot`、`diff`、`planner`、`executor`、`rendering`、`security`）が純粋処理と実行プリミティブを提供する。
+1. Cog 層（`cogs/*`）は Slash コマンド定義とイベント入口のみを担当する。
+2. Command Interaction 層（`interactions/*`）は Discord Interaction の I/O 実行制御を担当する。
+3. UseCase 層（`usecases/*`）が export/diff/apply ロジックを実行する。
+4. ドメインモジュール（`schema`、`snapshot`、`diff`、`planner`、`executor`、`rendering`、`security`）が純粋処理と実行プリミティブを提供する。
 
 ## データフロー
 ### `/schema export`

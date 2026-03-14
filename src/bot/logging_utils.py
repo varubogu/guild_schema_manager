@@ -11,6 +11,13 @@ P = ParamSpec("P")
 R = TypeVar("R")
 
 
+def configure_logging(level: str) -> None:
+    logging.basicConfig(
+        level=getattr(logging, level.upper(), logging.INFO),
+        format="%(asctime)s %(levelname)s %(name)s %(message)s",
+    )
+
+
 def log_async_lifecycle(
     logger: logging.Logger,
     action: str,

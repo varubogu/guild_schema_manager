@@ -5,23 +5,23 @@ import logging
 import discord
 from discord.ext import commands
 
-from bot.commands import SchemaCommandService
-from bot.commands.cogs import EventsCog, SchemaCog
-from bot.commands.context import export_command_context, file_command_context
-from bot.commands.handlers import (
+from bot.interactions.context import export_command_context, file_command_context
+from bot.interactions.handlers import (
     handle_apply,
     handle_diff,
     handle_export,
     maybe_confirm_guild_id_override,
 )
-from bot.commands.translator import LOCALIZATION_KEY, SchemaCommandTranslator
+from bot.cogs import OnReadyEventCog, SchemaCog
+from bot.cogs.commands.translator import LOCALIZATION_KEY, SchemaCommandTranslator
 from bot.config import Settings
-from bot.executor.noop import NoopExecutor
 from bot.localization import SupportedLocale
 from bot.logging_utils import log_async_lifecycle
-from bot.security import member_is_guild_admin
 from bot.session_store import InMemorySessionStore
-from bot.snapshot import build_snapshot_from_guild
+from bot.usecases.executor.noop import NoopExecutor
+from bot.usecases.schema import SchemaCommandService
+from bot.usecases.security import member_is_guild_admin
+from bot.usecases.snapshot import build_snapshot_from_guild
 
 logger = logging.getLogger(__name__)
 
@@ -48,7 +48,7 @@ class SchemaBot(commands.Bot):
     async def setup_hook(self) -> None:  # type: ignore[override]
         await self.tree.set_translator(SchemaCommandTranslator())
         await self.add_cog(SchemaCog(self))
-        await self.add_cog(EventsCog(self))
+        await self.add_cog(OnReadyEventCog(self))
         await self.tree.sync()
 
     async def _maybe_confirm_guild_id_override(
@@ -192,17 +192,9 @@ def create_client(settings: Settings) -> SchemaBot:
     return SchemaBot(settings=settings)
 
 
-def configure_logging(level: str) -> None:
-    logging.basicConfig(
-        level=getattr(logging, level.upper(), logging.INFO),
-        format="%(asctime)s %(levelname)s %(name)s %(message)s",
-    )
-
-
 __all__ = [
     "LOCALIZATION_KEY",
     "SchemaBot",
     "SchemaCommandTranslator",
-    "configure_logging",
     "create_client",
 ]

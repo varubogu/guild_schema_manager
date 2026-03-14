@@ -13,18 +13,21 @@ Primary runtime components:
 
 ## Source Structure (Cog + UseCase)
 - Runtime bootstrap and dependency wiring: `src/bot/app.py`
-- Slash command cog: `src/bot/commands/cogs/schema_cog.py`
-- Event cog (`on_ready`): `src/bot/commands/cogs/events_cog.py`
-- Interaction views (invoker-only confirmation UI): `src/bot/commands/views/*`
-- Interaction orchestration handlers: `src/bot/commands/handlers/schema_handlers.py`
-- Localization translator and command metadata: `src/bot/commands/translator.py`
+- Slash command cog: `src/bot/cogs/commands/schema.py`
+- Event cog (`on_ready`): `src/bot/cogs/events/on_ready.py`
+- Interaction context/responders and orchestration handlers: `src/bot/interactions/{context.py,responders.py,handlers/*}`
+- Interaction views (invoker-only confirmation UI): `src/bot/interactions/views/*`
+- Localization translator and command metadata: `src/bot/cogs/commands/translator.py`
 - Use case layer (command business logic): `src/bot/usecases/schema/service.py`
-- Compatibility re-export for legacy imports: `src/bot/commands/service.py`
+- Schema model / parser: `src/bot/usecases/schema_model/*`
+- Planner / Security use cases: `src/bot/usecases/{planner,security}/*`
+- Snapshot / Diff / Executor / Rendering: `src/bot/usecases/{snapshot,diff,executor,rendering}/*`
 
 Dependency direction:
-1. Cog / View layer (`commands/*`) handles Discord I/O only.
-2. UseCase layer (`usecases/*`) executes export/diff/apply logic.
-3. Domain modules (`schema`, `snapshot`, `diff`, `planner`, `executor`, `rendering`, `security`) provide pure processing and mutation primitives.
+1. Cog layer (`cogs/*`) defines slash commands and event entry points only.
+2. Command interaction layer (`interactions/*`) handles Discord interaction I/O orchestration.
+3. UseCase layer (`usecases/*`) executes export/diff/apply logic.
+4. Domain modules (`schema`, `snapshot`, `diff`, `planner`, `executor`, `rendering`, `security`) provide pure processing and mutation primitives.
 
 ## Data Flow
 ### `/schema export`

@@ -5,8 +5,8 @@ import logging
 
 import pytest
 
-from bot.executor import SkipOperationError, execute_plan, execute_plan_async
-from bot.planner.models import ApplyOperation, ApplyPlan
+from bot.usecases.executor import SkipOperationError, execute_plan, execute_plan_async
+from bot.usecases.planner.models import ApplyOperation, ApplyPlan
 
 
 class MixedExecutor:
@@ -104,7 +104,7 @@ def test_execute_plan_logs_failed_operation(caplog: pytest.LogCaptureFixture) ->
         ]
     )
 
-    caplog.set_level(logging.INFO, logger="bot.executor.engine")
+    caplog.set_level(logging.INFO, logger="bot.usecases.executor.engine")
     execute_plan(plan, b"backup", MixedExecutor())
 
     assert "apply.operation.failed operation_id=1" in caplog.text
@@ -126,7 +126,7 @@ def test_execute_plan_collects_skipped(caplog: pytest.LogCaptureFixture) -> None
         ]
     )
 
-    caplog.set_level(logging.INFO, logger="bot.executor.engine")
+    caplog.set_level(logging.INFO, logger="bot.usecases.executor.engine")
     report = execute_plan(plan, b"backup", SkippingExecutor())
 
     assert len(report.applied) == 0
@@ -172,7 +172,7 @@ def test_execute_plan_async_collects_applied_failed_and_skipped(
         ]
     )
 
-    caplog.set_level(logging.INFO, logger="bot.executor.engine")
+    caplog.set_level(logging.INFO, logger="bot.usecases.executor.engine")
     report = asyncio.run(execute_plan_async(plan, b"backup", AsyncMixedExecutor()))
 
     assert len(report.applied) == 1

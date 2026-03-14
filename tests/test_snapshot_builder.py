@@ -3,7 +3,7 @@ from __future__ import annotations
 from types import SimpleNamespace
 from typing import Any
 
-from bot.snapshot import build_snapshot_from_guild
+from bot.usecases.snapshot import build_snapshot_from_guild
 
 
 def _role(
