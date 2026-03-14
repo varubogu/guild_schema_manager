@@ -63,8 +63,7 @@ channels:
 ## name のみ指定時の挙動
 - 一意に一致: 更新対象として扱う。
 - 複数一致:
-  - `/schema diff`: 比較を継続し、曖昧な項目は未一致の差異として扱う。
-  - `/schema apply`: 検証エラー。
+  - `/schema diff` と `/schema apply`: 比較を継続し、曖昧な項目は未一致の差異として扱う。
 - 一致なし: 新規作成扱い。
 
 ## ロールの Bot 管理フラグ
@@ -72,6 +71,11 @@ channels:
 - `export` は Discord role tag `bot_id` を持つロールを `bot_managed: true` で出力する。
 - `bot_managed: true` のロール差分は `/schema diff` と `/schema apply` プレビューに通常どおり表示する。
 - `/schema apply` では `bot_managed: true` のロール `Create`/`Update`/`Delete`/`Reorder` は実行対象外とし、`skipped[]` に理由 `bot_managed_role` で記録する。
+- `/schema apply` では、ロール `Create` の要求 `position` が Bot のトップロール位置以上の場合、`bot top role position - 1` へクランプして実行する。
+- `/schema apply` では、Bot のトップロール位置以上のロールを対象とする `Update`/`Reorder` は実行対象外とし、`skipped[]` に理由 `role_hierarchy_restriction` で記録する。
+- ロール操作で発生した階層制約由来の `discord.Forbidden` は、理由 `role_hierarchy_restriction` のスキップとして扱う。
+- `/schema diff` 出力と `/schema apply` プレビューは、実行時に除外見込みの操作を `適用時スキップ理由` 列に表示する。
+- `/schema diff` 出力と `/schema apply` プレビューは、`current_server` / `config_file` / `applied`（および対応する `*_name`）列で、現在状態・構成ファイル意図・適用後状態を分離表示する。
 
 ## 入力モードの挙動（`/schema diff`、`/schema apply`）
 - `file_trust_mode=false`（既定）: アップロードを部分パッチとしてマージする。

@@ -74,6 +74,7 @@
 - `file_trust_mode=true`: アップロードを完全スキーマとして扱い、未記載リソースは削除差分になる。
 - アップロード内の `guild.id` が定義されていて現在ギルドIDと異なる場合、続行前に現在ギルドIDへ上書きするか確認する。
 - この確認がキャンセルまたはタイムアウトした場合、コマンドは中止する。
+- diff 出力にも `適用時スキップ理由` 列を表示し、`/schema apply` 前に除外予定を確認できるようにする。
 
 ## `/schema apply file:<attachment>`
 目的: 確認付きでスキーマ変更を適用する。
@@ -108,14 +109,18 @@
 - `GSM-Dustbox` がなければ管理者のみ閲覧可能な権限で自動作成する。
 - ロール削除は Bot がハード削除せず、手動削除対象として報告する。
 - `bot_managed=true` のロール `Create`/`Update`/`Delete`/`Reorder` は実行対象外とし、`skipped[]` に理由 `bot_managed_role` で記録する。
+- ロール `Create` で要求 `position` が Bot のトップロール位置以上の場合は、`bot top role position - 1` にクランプして実行する。
+- Bot のトップロール位置以上にあるロールへの `Update`/`Reorder` は実行せず、`skipped[]` に理由 `role_hierarchy_restriction` で記録する。
+- ロール階層制約に起因する `discord.Forbidden` は `skipped[]`（理由 `role_hierarchy_restriction`）へ変換して報告する。
+- diff 出力と apply プレビューの双方に `適用時スキップ理由` 列を表示し、確認前に同じ除外予定を確認できるようにする。
 - 有効期限切れ時はタイムアウトとして再実行を要求。
 - 差分なしの場合は no-op 要約を返す。
 
 ## レスポンス契約
 - Diff モデル:
   - `summary`
-  - `changes[]` (`action`, `target_type`, `target_id`, `before_name`, `after_name`, `before`, `after`, `risk`)
-  - `informational_changes[]` (`action`, `target_type`, `target_id`, `before_name`, `after_name`, `before`, `after`)
+  - `changes[]` (`action`, `target_type`, `target_id`, `before_name`, `config_name`, `after_name`, `before`, `config`, `after`, `risk`)
+  - `informational_changes[]` (`action`, `target_type`, `target_id`, `before_name`, `config_name`, `after_name`, `before`, `config`, `after`)
 - Apply モデル:
   - `backup_file`
   - `applied[]`

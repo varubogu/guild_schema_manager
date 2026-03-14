@@ -66,6 +66,7 @@ async def handle_apply(
             invoker_id=interaction.user.id,
             file_trust_mode=file_trust_mode,
             prefer_name_matching=prefer_name_matching,
+            bot_top_role_position=interaction.guild.me.top_role.position,
             locale=locale,
         )
     except AuthorizationError as exc:

@@ -17,10 +17,12 @@ Example table columns:
 - `action`
 - `target_type`
 - `target_id`
-- `before_name`
-- `after_name`
-- `before`
-- `after`
+- `current_server_name`
+- `config_file_name`
+- `applied_name`
+- `current_server`
+- `config_file`
+- `applied`
 - `risk`
 - `bot_managed` (role-only indicator shown as dedicated column)
 
@@ -41,12 +43,14 @@ Example table columns:
 - Resources defined in both guild and uploaded file and fully equal are displayed as `No change (exact match)`.
 - `file_trust_mode=true`: uploaded file is treated as full source-of-truth.
 - In trust mode, omission in uploaded file generates delete diffs.
-- In `/schema diff`, ambiguous name matches are treated as differences instead of immediate validation failure, so comparison can continue.
+- In `/schema diff` and `/schema apply`, ambiguous name matches are treated as differences instead of immediate validation failure, so comparison can continue.
 - Channel name-based matching uses parent scope and channel type before deciding ambiguity.
 - In name-first mode, when duplicate role names exist and uploaded role includes `bot_managed`, matching prefers candidates with the same `bot_managed` value.
 - `bot_managed` is treated as apply-exclusion metadata; a difference only in `bot_managed` does not create an update diff.
 - Roles marked with `bot_managed: true` are displayed in diff/preview when other fields differ, but apply execution excludes those role operations.
-- Internal apply metadata (for example `apply_excluded_reason`) is not shown in the diff table `before`/`after` fields.
+- Diff output and apply preview add an `apply_skip_reason` table column for operations that are expected to be excluded at execution time.
+- When `apply_skip_reason` is shown, `applied` / `applied_name` reflect the unchanged current server state.
+- Internal apply metadata (for example `apply_excluded_reason`) is not shown in the diff table `current_server`/`config_file`/`applied` fields.
 
 ## Result Delivery
 - Diff results are always attached as downloadable Markdown file.
@@ -74,6 +78,9 @@ Example table columns:
 - For category deletes, child channels are moved to `GSM-Dustbox` and the source category is archived for manual cleanup.
 - `GSM-Dustbox` is auto-created with admin-only visibility when missing.
 - Role delete operations are not hard-deleted by bot and are reported for manual cleanup.
+- Role `Create` operations that request `position >= bot top role position` are executed with position clamped to `bot top role position - 1`.
+- Role `Update`/`Reorder` operations targeting roles at or above bot top role position are skipped with reason `role_hierarchy_restriction`.
+- Role-operation hierarchy-related `discord.Forbidden` errors are converted to skipped operations with reason `role_hierarchy_restriction`.
 
 ## Atomicity and Failure Handling
 - Execution model is best effort, not global transaction.
@@ -83,6 +90,7 @@ Example table columns:
   - `failed[]`
   - `skipped[]`
 - Excluded bot-managed role operations are recorded in `skipped[]` with reason `bot_managed_role`.
+- Excluded role hierarchy operations are recorded in `skipped[]` with reason `role_hierarchy_restriction`.
 
 ## Restart and Session Expiry
 - Pending plans are memory-only.

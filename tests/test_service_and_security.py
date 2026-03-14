@@ -441,6 +441,39 @@ def test_apply_skips_bot_managed_role_operations_with_reason() -> None:
     assert response.report.skipped[0]["reason"] == "bot_managed_role"
 
 
+def test_apply_preview_shows_role_hierarchy_expected_skip() -> None:
+    current = parse_schema_dict(base_schema_dict())
+    uploaded = yaml.safe_dump(
+        {
+            "roles": [
+                {
+                    "id": "100",
+                    "permissions": ["manage_channels", "mute_members"],
+                }
+            ]
+        },
+        sort_keys=False,
+    ).encode("utf-8")
+
+    srv = service()
+    preview = srv.apply_schema_preview(
+        current,
+        uploaded,
+        invoker_is_admin=True,
+        invoker_id=10,
+        bot_top_role_position=1,
+    )
+
+    assert preview.confirmation_token is not None
+    assert "apply_skip_reason" in preview.markdown
+    assert "role_hierarchy_restriction" in preview.markdown
+    assert (
+        "`{'permissions': ['manage_channels']}` | "
+        "`{'permissions': ['manage_channels', 'mute_members']}` | "
+        "`{'permissions': ['manage_channels']}`"
+    ) in preview.markdown
+
+
 def test_confirmation_expiry_returns_timeout_message() -> None:
     current = parse_schema_dict(base_schema_dict())
     uploaded = yaml.safe_dump(
@@ -484,6 +517,121 @@ def test_diff_partial_schema_keeps_unspecified_entities() -> None:
     assert "Update: 1" in response.markdown
     assert "Delete: 0" in response.markdown
     assert "patched-topic" in response.markdown
+
+
+def test_diff_displays_current_config_and_applied_columns_for_patch_update() -> None:
+    current = parse_schema_dict(schema_with_overwrites_dict())
+    uploaded = yaml.safe_dump(
+        {"channels": [{"id": "300", "topic": "patched-topic"}]},
+        sort_keys=False,
+    ).encode("utf-8")
+
+    srv = service()
+    response = srv.diff_schema(current, uploaded, invoker_is_admin=True)
+
+    assert "current_server_name" in response.markdown
+    assert "config_file_name" in response.markdown
+    assert "| general | - | general |" in response.markdown
+    assert (
+        "`{'topic': 'hello'}` | `{'topic': 'patched-topic'}` | "
+        "`{'topic': 'patched-topic'}`"
+    ) in response.markdown
+
+
+def test_diff_displays_dash_for_config_when_patch_omits_entity() -> None:
+    current = parse_schema_dict(base_schema_dict())
+    uploaded = yaml.safe_dump({}, sort_keys=False).encode("utf-8")
+
+    srv = service()
+    response = srv.diff_schema(current, uploaded, invoker_is_admin=True)
+
+    assert "| role | 100 | Moderators | - | Moderators | - | false | - |" in (
+        response.markdown
+    )
+
+
+def test_diff_resolves_config_column_for_overwrite_update() -> None:
+    current = parse_schema_dict(schema_with_overwrites_dict())
+    uploaded = yaml.safe_dump(
+        {
+            "categories": [
+                {
+                    "id": "200",
+                    "overwrites": [
+                        {
+                            "target": {"type": "role", "id": "100"},
+                            "allow": ["view_channel", "manage_channels"],
+                            "deny": ["send_messages"],
+                        }
+                    ],
+                }
+            ]
+        },
+        sort_keys=False,
+    ).encode("utf-8")
+
+    srv = service()
+    response = srv.diff_schema(current, uploaded, invoker_is_admin=True)
+
+    assert "category:200:role:100" in response.markdown
+    assert (
+        "`{'allow': ['view_channel'], 'deny': ['send_messages']}` | "
+        "`{'allow': ['manage_channels', 'view_channel'], 'deny': ['send_messages']}` | "
+        "`{'allow': ['manage_channels', 'view_channel'], 'deny': ['send_messages']}`"
+    ) in response.markdown
+
+
+def test_diff_and_apply_preview_share_same_apply_skip_reason_markdown() -> None:
+    current = parse_schema_dict(base_schema_dict())
+    uploaded = yaml.safe_dump(
+        {
+            "roles": [
+                {
+                    "id": "100",
+                    "permissions": ["manage_channels", "mute_members"],
+                }
+            ]
+        },
+        sort_keys=False,
+    ).encode("utf-8")
+
+    srv = service()
+    diff_response = srv.diff_schema(
+        current,
+        uploaded,
+        invoker_is_admin=True,
+        bot_top_role_position=1,
+    )
+    apply_preview = srv.apply_schema_preview(
+        current,
+        uploaded,
+        invoker_is_admin=True,
+        invoker_id=10,
+        bot_top_role_position=1,
+    )
+
+    assert "apply_skip_reason" in diff_response.markdown
+    assert "role_hierarchy_restriction" in diff_response.markdown
+    assert diff_response.markdown in apply_preview.markdown
+
+
+def test_diff_and_apply_preview_share_same_diff_markdown_when_no_changes_to_apply() -> (
+    None
+):
+    current = parse_schema_dict(base_schema_dict())
+    uploaded = yaml.safe_dump({}, sort_keys=False).encode("utf-8")
+
+    srv = service()
+    diff_response = srv.diff_schema(current, uploaded, invoker_is_admin=True)
+    apply_preview = srv.apply_schema_preview(
+        current,
+        uploaded,
+        invoker_is_admin=True,
+        invoker_id=10,
+    )
+
+    assert apply_preview.confirmation_token is None
+    assert diff_response.markdown == apply_preview.markdown
 
 
 def test_diff_can_prefer_name_matching_when_ids_are_foreign() -> None:
@@ -606,6 +754,61 @@ def test_diff_treats_ambiguous_channel_name_match_as_diff_not_error() -> None:
     assert "Update: 1" in response.markdown
     assert "Create: 1" in response.markdown
     assert "new-topic" in response.markdown
+
+
+def test_apply_preview_treats_ambiguous_channel_name_match_as_diff_not_error() -> None:
+    current = parse_schema_dict(
+        {
+            "version": 1,
+            "guild": {"id": "1", "name": "Guild"},
+            "roles": [],
+            "categories": [
+                {"id": "200", "name": "Lobby", "position": 0, "overwrites": []}
+            ],
+            "channels": [
+                {
+                    "id": "300",
+                    "name": "general",
+                    "type": "text",
+                    "parent_id": "200",
+                    "position": 0,
+                    "topic": "old-topic",
+                    "overwrites": [],
+                },
+                {
+                    "id": "301",
+                    "name": "general",
+                    "type": "voice",
+                    "parent_id": "200",
+                    "position": 1,
+                    "overwrites": [],
+                },
+            ],
+        }
+    )
+    uploaded = yaml.safe_dump(
+        {
+            "channels": [
+                {"name": "general", "topic": "new-topic"},
+                {"name": "news", "type": "text", "parent_name": "Lobby"},
+            ]
+        },
+        sort_keys=False,
+    ).encode("utf-8")
+
+    srv = service()
+    preview = srv.apply_schema_preview(
+        current,
+        uploaded,
+        invoker_is_admin=True,
+        invoker_id=10,
+        prefer_name_matching=True,
+    )
+
+    assert preview.confirmation_token is not None
+    assert "Update: 1" in preview.markdown
+    assert "Create: 1" in preview.markdown
+    assert "new-topic" in preview.markdown
 
 
 def test_diff_name_priority_matches_foreign_parent_id_channel_by_name() -> None:

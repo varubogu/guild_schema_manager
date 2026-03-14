@@ -17,10 +17,12 @@
 - `action`
 - `target_type`
 - `target_id`
-- `before_name`
-- `after_name`
-- `before`
-- `after`
+- `current_server_name`
+- `config_file_name`
+- `applied_name`
+- `current_server`
+- `config_file`
+- `applied`
 - `risk`
 - `botが管理している項目`（role のみ表示）
 
@@ -41,12 +43,14 @@
 - guild とアップロードの両方で定義され完全一致するリソースを `変更なし（完全一致）` として表示する。
 - `file_trust_mode=true` ではアップロードを完全スキーマとして扱う。
 - 信頼モードでは未記載リソースに対して削除差分を生成する。
-- `/schema diff` では name 一致が曖昧でも即時エラーにせず、差異として比較を継続する。
+- `/schema diff` と `/schema apply` では name 一致が曖昧でも即時エラーにせず、差異として比較を継続する。
 - channels の name ベース一致では、親カテゴリスコープとチャンネル種別を先に照合する。
 - name 優先モードで同名ロールが複数ある場合、アップロード側に `bot_managed` が含まれていれば同じ `bot_managed` 値の候補を優先して一致判定する。
 - `bot_managed` は適用除外メタ情報として扱い、`bot_managed` の差分のみでは `Update` を生成しない。
 - `bot_managed: true` のロールは他フィールド差分がある場合に diff/preview へ表示し、apply 実行では該当ロール操作を除外する。
-- `apply_excluded_reason` などの内部メタ情報は diff テーブルの `before`/`after` には表示しない。
+- diff 出力と apply プレビューは、実行時に除外見込みの操作を `適用時スキップ理由` 列で表示する。
+- `適用時スキップ理由` が表示される行では、`applied` / `applied_name` は現在サーバー状態のまま表示する。
+- `apply_excluded_reason` などの内部メタ情報は diff テーブルの `current_server`/`config_file`/`applied` には表示しない。
 
 ## 結果返却
 - diff 結果は常にダウンロード可能な Markdown ファイルとして添付する。
@@ -74,6 +78,9 @@
 - カテゴリ削除は子チャンネルを `GSM-Dustbox` へ移動し、カテゴリ本体は手動削除前提でアーカイブする。
 - `GSM-Dustbox` がない場合は管理者のみ閲覧可能な権限で自動作成する。
 - ロール削除は Bot がハード削除せず、手動クリーンアップ対象として報告する。
+- ロール `Create` の要求 `position` が Bot のトップロール位置以上の場合は、`bot top role position - 1` にクランプして実行する。
+- Bot のトップロール位置以上のロールを対象とする `Update`/`Reorder` は理由 `role_hierarchy_restriction` でスキップする。
+- ロール操作で発生した階層制約由来の `discord.Forbidden` は、理由 `role_hierarchy_restriction` のスキップへ変換する。
 
 ## 原子性と失敗時挙動
 - 実行モデルはグローバルトランザクションではなくベストエフォート。
@@ -83,6 +90,7 @@
   - `failed[]`
   - `skipped[]`
 - 除外された bot 管理ロール操作は `skipped[]` に理由 `bot_managed_role` で記録する。
+- 除外されたロール階層制約操作は `skipped[]` に理由 `role_hierarchy_restriction` で記録する。
 
 ## 再起動とセッション失効
 - 保留プランはメモリ内のみ。

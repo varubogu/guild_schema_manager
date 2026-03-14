@@ -63,8 +63,7 @@ channels:
 ## Name-Only Behavior
 - Unique name match: treated as update target.
 - Multiple objects with same name in scope:
-  - `/schema diff`: comparison continues and treats ambiguous entries as unmatched differences.
-  - `/schema apply`: validation error.
+  - `/schema diff` and `/schema apply`: comparison continues and treats ambiguous entries as unmatched differences.
 - No name match: treated as create.
 
 ## Role Bot Management Flag
@@ -72,6 +71,11 @@ channels:
 - `export` sets `bot_managed: true` for roles that have Discord role tag `bot_id`.
 - Diffs for `bot_managed: true` roles are still shown in `/schema diff` and `/schema apply` preview.
 - During `/schema apply`, role `Create`/`Update`/`Delete`/`Reorder` operations with `bot_managed: true` are excluded from execution and reported in `skipped[]` with reason `bot_managed_role`.
+- During `/schema apply`, role `Create` with requested `position >= bot top role position` is executed with position clamped to `bot top role position - 1`.
+- During `/schema apply`, role `Update`/`Reorder` targeting roles at or above bot top role position are skipped and reported in `skipped[]` with reason `role_hierarchy_restriction`.
+- Role-operation hierarchy-related `discord.Forbidden` errors are treated as skipped operations with reason `role_hierarchy_restriction`.
+- `/schema diff` output and `/schema apply` preview include an `apply_skip_reason` table column for operations expected to be excluded at execution time.
+- `/schema diff` output and `/schema apply` preview include `current_server` / `config_file` / `applied` columns (and matching `*_name` columns) so current state, uploaded file intent, and post-apply state are shown separately.
 
 ## Input Mode Behavior (`/schema diff`, `/schema apply`)
 - `file_trust_mode=false` (default): uploaded files may be partial and are merged as patch.

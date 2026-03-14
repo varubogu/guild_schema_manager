@@ -30,8 +30,9 @@
 15. Partial Discord API failures are separated into `failed[]` while successful operations remain in `applied[]`.
 16. Bot restart invalidates pending confirmation plans.
 17. When `guild.id` mismatch continuation is approved, matching switches to name-first for roles/categories/channels.
-18. `/schema diff` continues and reports differences even when name matching is ambiguous.
+18. `/schema diff` and `/schema apply` continue and report differences even when name matching is ambiguous.
 19. Role changes with `bot_managed=true` appear in diff/preview and are recorded in `skipped[]` with reason `bot_managed_role` during apply.
+20. Role hierarchy limits are handled as follows: create position clamp to `bot top role position - 1`, update/reorder skip with reason `role_hierarchy_restriction`, and diff/apply preview display matching `apply_skip_reason` column values.
 
 ## Mocking Strategy
 - Mock discord.py HTTP/guild objects at service boundary.

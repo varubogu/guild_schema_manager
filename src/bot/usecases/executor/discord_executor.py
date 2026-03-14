@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any, TypeAlias, cast
+from typing import Any, NoReturn, TypeAlias, cast
 
 import discord
 
@@ -11,6 +11,8 @@ from .errors import SkipOperationError
 
 
 DUSTBOX_CATEGORY_NAME = "GSM-Dustbox"
+ROLE_HIERARCHY_SKIP_REASON = "role_hierarchy_restriction"
+_ROLE_MANAGEABLE_ACTIONS = frozenset({"Update", "Reorder"})
 OverwriteTarget: TypeAlias = discord.Role | discord.Member
 OverwriteKey: TypeAlias = OverwriteTarget | discord.Object
 ManagedChannel: TypeAlias = (
@@ -45,17 +47,25 @@ class DiscordGuildExecutor:
     async def _execute_role(self, operation: ApplyOperation) -> None:
         if operation.action == "Create":
             payload = operation.after or {}
-            role = await self._guild.create_role(
-                name=str(payload.get("name", "new-role")),
-                colour=discord.Colour(int(payload.get("color", 0))),
-                hoist=bool(payload.get("hoist", False)),
-                mentionable=bool(payload.get("mentionable", False)),
-                permissions=self._permissions_from_names(
-                    payload.get("permissions", [])
-                ),
-            )
+            try:
+                role = await self._guild.create_role(
+                    name=str(payload.get("name", "new-role")),
+                    colour=discord.Colour(int(payload.get("color", 0))),
+                    hoist=bool(payload.get("hoist", False)),
+                    mentionable=bool(payload.get("mentionable", False)),
+                    permissions=self._permissions_from_names(
+                        payload.get("permissions", [])
+                    ),
+                )
+            except discord.Forbidden as exc:
+                self._raise_role_hierarchy_skip(exc)
             if "position" in payload:
-                await role.edit(position=int(payload["position"]))
+                desired_position = int(payload["position"])
+                clamped_position = self._clamp_role_position(desired_position)
+                try:
+                    await role.edit(position=clamped_position)
+                except discord.Forbidden as exc:
+                    self._raise_role_hierarchy_skip(exc)
             return
 
         role = self._find_role(operation)
@@ -67,9 +77,15 @@ class DiscordGuildExecutor:
                 "role delete is disabled; delete the role manually"
             )
 
+        if operation.action in _ROLE_MANAGEABLE_ACTIONS:
+            self._ensure_role_is_manageable(role)
+
         if operation.action == "Reorder":
             position = int((operation.after or {}).get("position", role.position))
-            await role.edit(position=position)
+            try:
+                await role.edit(position=position)
+            except discord.Forbidden as exc:
+                self._raise_role_hierarchy_skip(exc)
             return
 
         if operation.action == "Update":
@@ -88,7 +104,10 @@ class DiscordGuildExecutor:
                     payload["permissions"]
                 )
             if edit_kwargs:
-                await role.edit(**edit_kwargs)
+                try:
+                    await role.edit(**edit_kwargs)
+                except discord.Forbidden as exc:
+                    self._raise_role_hierarchy_skip(exc)
             return
 
         raise SkipOperationError(f"unsupported role action: {operation.action}")
@@ -336,6 +355,38 @@ class DiscordGuildExecutor:
             return None
 
         return discord.utils.get(self._guild.categories, name=ref_text)
+
+    def _bot_top_role_position(self) -> int:
+        me = getattr(self._guild, "me", None)
+        top_role = getattr(me, "top_role", None)
+        top_position = getattr(top_role, "position", 0)
+        if isinstance(top_position, int):
+            return top_position
+        return 0
+
+    def _clamp_role_position(self, desired_position: int) -> int:
+        max_allowed_position = max(self._bot_top_role_position() - 1, 0)
+        return min(desired_position, max_allowed_position)
+
+    def _ensure_role_is_manageable(self, role: discord.Role) -> None:
+        if role.position >= self._bot_top_role_position():
+            raise SkipOperationError(ROLE_HIERARCHY_SKIP_REASON)
+
+    def _raise_role_hierarchy_skip(self, exc: discord.Forbidden) -> NoReturn:
+        if self._is_role_hierarchy_forbidden(exc):
+            raise SkipOperationError(ROLE_HIERARCHY_SKIP_REASON) from exc
+        raise exc
+
+    def _is_role_hierarchy_forbidden(self, exc: discord.Forbidden) -> bool:
+        if getattr(exc, "code", None) == 50013:
+            return True
+        text = str(exc).lower()
+        markers = (
+            "role hierarchy",
+            "higher than your highest role",
+            "missing permissions",
+        )
+        return any(marker in text for marker in markers)
 
     def _resolve_owner(self, owner_type: str, owner_id: str) -> PermissionOwner | None:
         if not owner_id or owner_id == "None" or not owner_id.isdigit():

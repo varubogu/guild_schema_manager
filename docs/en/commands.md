@@ -74,6 +74,7 @@ Behavior:
 - `file_trust_mode=true`: uploaded file is parsed as full schema source-of-truth; omitted resources become delete diffs.
 - If uploaded `guild.id` is present and differs from the current guild, the bot asks whether to overwrite it to the current guild ID before continuing.
 - If that confirmation is cancelled or times out, the command is aborted.
+- Diff output includes an `apply_skip_reason` table column so exclusions are visible before `/schema apply`.
 
 ## `/schema apply file:<attachment>`
 Purpose: preview and apply schema changes with confirmation.
@@ -108,14 +109,18 @@ Execution rules:
 - `GSM-Dustbox` is created with admin-only visibility if it does not exist.
 - Role delete targets are reported for manual deletion (no hard delete by bot).
 - Role operations (`Create`/`Update`/`Delete`/`Reorder`) where `bot_managed=true` are excluded from execution and reported as `skipped[]` with reason `bot_managed_role`.
+- Role `Create` with requested `position >= bot top role position` is executed with position clamped to `bot top role position - 1`.
+- Role `Update`/`Reorder` targeting roles at or above bot top role position are skipped and reported in `skipped[]` with reason `role_hierarchy_restriction`.
+- Role-operation `discord.Forbidden` errors caused by hierarchy limits are translated to `skipped[]` with reason `role_hierarchy_restriction`.
+- Diff output and apply preview include an `apply_skip_reason` table column so invokers see the same exclusions before confirmation.
 - Expired confirmation button returns timeout message and requires rerun.
 - Any apply request without diff changes returns no-op summary.
 
 ## Response Shape Contracts
 - Diff output model:
   - `summary`
-  - `changes[]` with `action`, `target_type`, `target_id`, `before_name`, `after_name`, `before`, `after`, `risk`
-  - `informational_changes[]` with `action`, `target_type`, `target_id`, `before_name`, `after_name`, `before`, `after`
+  - `changes[]` with `action`, `target_type`, `target_id`, `before_name`, `config_name`, `after_name`, `before`, `config`, `after`, `risk`
+  - `informational_changes[]` with `action`, `target_type`, `target_id`, `before_name`, `config_name`, `after_name`, `before`, `config`, `after`
 - Apply output model:
   - `backup_file`
   - `applied[]`

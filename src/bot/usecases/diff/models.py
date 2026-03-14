@@ -25,7 +25,9 @@ class DiffChange:
     before: dict[str, Any] | None
     after: dict[str, Any] | None
     risk: Literal["low", "medium", "high"]
+    config: dict[str, Any] | None = None
     before_name: str | None = None
+    config_name: str | None = None
     after_name: str | None = None
 
 
@@ -36,7 +38,9 @@ class DiffInformationalChange:
     target_id: str | None
     before: dict[str, Any] | None
     after: dict[str, Any] | None
+    config: dict[str, Any] | None = None
     before_name: str | None = None
+    config_name: str | None = None
     after_name: str | None = None
 
 

@@ -81,7 +81,10 @@ class _FakeFollowup:
 
 class _FakeInteraction:
     def __init__(self) -> None:
-        self.guild: SimpleNamespace | None = SimpleNamespace(id=123)
+        self.guild: SimpleNamespace | None = SimpleNamespace(
+            id=123,
+            me=SimpleNamespace(top_role=SimpleNamespace(position=1)),
+        )
         self.user = SimpleNamespace(id=456)
         self.locale = "en-US"
         self.response = _FakeResponse()
@@ -152,6 +155,7 @@ class _FakeService:
         invoker_is_admin: bool,
         file_trust_mode: bool = False,
         prefer_name_matching: bool = False,
+        bot_top_role_position: int | None = None,
         locale: str = "en",
     ) -> object:
         self.diff_calls.append(
@@ -161,6 +165,7 @@ class _FakeService:
                 "invoker_is_admin": invoker_is_admin,
                 "file_trust_mode": file_trust_mode,
                 "prefer_name_matching": prefer_name_matching,
+                "bot_top_role_position": bot_top_role_position,
                 "locale": locale,
             }
         )
@@ -175,6 +180,7 @@ class _FakeService:
         invoker_id: int,
         file_trust_mode: bool = False,
         prefer_name_matching: bool = False,
+        bot_top_role_position: int | None = None,
         locale: str = "en",
     ) -> object:
         self.apply_calls.append(
@@ -185,6 +191,7 @@ class _FakeService:
                 "invoker_id": invoker_id,
                 "file_trust_mode": file_trust_mode,
                 "prefer_name_matching": prefer_name_matching,
+                "bot_top_role_position": bot_top_role_position,
                 "locale": locale,
             }
         )
@@ -255,6 +262,7 @@ def test_handle_diff_passes_file_trust_mode_to_service(
     assert len(fake_service.diff_calls) == 1
     assert fake_service.diff_calls[0]["file_trust_mode"] is True
     assert fake_service.diff_calls[0]["prefer_name_matching"] is False
+    assert fake_service.diff_calls[0]["bot_top_role_position"] == 1
     assert fake_service.diff_calls[0]["locale"] == "en"
     assert interaction.response.deferred == [{"ephemeral": True}]
     assert interaction.followup.messages[0]["content"] == "diff-ok"
@@ -294,6 +302,7 @@ def test_handle_apply_passes_file_trust_mode_to_service(
     assert len(fake_service.apply_calls) == 1
     assert fake_service.apply_calls[0]["file_trust_mode"] is True
     assert fake_service.apply_calls[0]["prefer_name_matching"] is False
+    assert fake_service.apply_calls[0]["bot_top_role_position"] == 1
     assert fake_service.apply_calls[0]["locale"] == "en"
     assert interaction.response.deferred == [{"ephemeral": True}]
     assert interaction.followup.messages[0]["content"] == "apply-ok"

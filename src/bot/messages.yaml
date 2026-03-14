@@ -105,6 +105,18 @@ service.apply.session_forbidden:
 service.apply.session_error:
   ja: "確認処理に失敗しました: %{error}"
   en: "Confirmation failed: %{error}"
+service.apply.expected_skips.title:
+  ja: "適用時にスキップ見込み"
+  en: "Expected skips during apply"
+service.apply.expected_skips.item:
+  ja: "%{operation_id} %{action} %{target_type}(%{target_id}) reason=%{reason}"
+  en: "%{operation_id} %{action} %{target_type}(%{target_id}) reason=%{reason}"
+service.apply.skip_reason.bot_managed_role:
+  ja: "bot_managed_role（bot管理ロール）"
+  en: "bot_managed_role (bot-managed role)"
+service.apply.skip_reason.role_hierarchy_restriction:
+  ja: "role_hierarchy_restriction（ロール階層制約）"
+  en: "role_hierarchy_restriction (role hierarchy restriction)"
 
 render.diff.title:
   ja: "差分サマリー"
@@ -121,24 +133,39 @@ render.diff.column.target_type:
 render.diff.column.target_id:
   ja: "target_id"
   en: "target_id"
-render.diff.column.before_name:
-  ja: "before_name"
-  en: "before_name"
-render.diff.column.after_name:
-  ja: "after_name"
-  en: "after_name"
+render.diff.column.current_server_name:
+  ja: "現在サーバー名"
+  en: "current_server_name"
+render.diff.column.config_file_name:
+  ja: "構成ファイル名"
+  en: "config_file_name"
+render.diff.column.applied_name:
+  ja: "適用後名"
+  en: "applied_name"
 render.diff.column.risk:
   ja: "risk"
   en: "risk"
 render.diff.column.bot_managed:
   ja: "botが管理している項目"
   en: "bot_managed"
-render.diff.column.before:
-  ja: "before"
-  en: "before"
-render.diff.column.after:
-  ja: "after"
-  en: "after"
+render.diff.column.apply_skip_reason:
+  ja: "適用時スキップ理由"
+  en: "apply_skip_reason"
+render.diff.column.current_server:
+  ja: "現在サーバー"
+  en: "current_server"
+render.diff.column.config_file:
+  ja: "構成ファイル"
+  en: "config_file"
+render.diff.column.applied:
+  ja: "適用後"
+  en: "applied"
+render.skip_reason.bot_managed_role:
+  ja: "bot_managed_role"
+  en: "bot_managed_role"
+render.skip_reason.role_hierarchy_restriction:
+  ja: "role_hierarchy_restriction"
+  en: "role_hierarchy_restriction"
 
 render.apply.title:
   ja: "適用結果"

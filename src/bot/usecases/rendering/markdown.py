@@ -10,10 +10,14 @@ from bot.usecases.planner.models import ApplyReport
 
 _APPLY_EXCLUDED_REASON_KEY = "apply_excluded_reason"
 _BOT_MANAGED_SKIP_REASON = "bot_managed_role"
+_ROLE_HIERARCHY_SKIP_REASON = "role_hierarchy_restriction"
 
 
 def render_diff_markdown(
-    diff_result: DiffResult, *, locale: SupportedLocale = "en"
+    diff_result: DiffResult,
+    *,
+    locale: SupportedLocale = "en",
+    expected_skip_reasons: list[str | None] | None = None,
 ) -> str:
     out = StringIO()
     summary = diff_result.summary
@@ -61,15 +65,20 @@ def render_diff_markdown(
         f"| {t('render.diff.column.action', locale)} | "
         f"{t('render.diff.column.target_type', locale)} | "
         f"{t('render.diff.column.target_id', locale)} | "
-        f"{t('render.diff.column.before_name', locale)} | "
-        f"{t('render.diff.column.after_name', locale)} | "
+        f"{t('render.diff.column.current_server_name', locale)} | "
+        f"{t('render.diff.column.config_file_name', locale)} | "
+        f"{t('render.diff.column.applied_name', locale)} | "
         f"{t('render.diff.column.risk', locale)} | "
         f"{t('render.diff.column.bot_managed', locale)} | "
-        f"{t('render.diff.column.before', locale)} | "
-        f"{t('render.diff.column.after', locale)} |\n"
+        f"{t('render.diff.column.apply_skip_reason', locale)} | "
+        f"{t('render.diff.column.current_server', locale)} | "
+        f"{t('render.diff.column.config_file', locale)} | "
+        f"{t('render.diff.column.applied', locale)} |\n"
     )
-    out.write("| --- | --- | --- | --- | --- | --- | --- | --- | --- |\n")
-    for change in diff_result.changes:
+    out.write(
+        "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |\n"
+    )
+    for idx, change in enumerate(diff_result.changes):
         action = action_labels.get(change.action, change.action)
         target_type = target_labels.get(change.target_type, change.target_type)
         risk = risk_labels.get(change.risk, change.risk)
@@ -78,14 +87,34 @@ def render_diff_markdown(
             change.before,
             change.after,
         )
+        expected_skip_reason = (
+            expected_skip_reasons[idx]
+            if expected_skip_reasons is not None and idx < len(expected_skip_reasons)
+            else None
+        )
+        skip_reason = expected_skip_reason or _extract_apply_skip_reason(
+            change.before,
+            change.after,
+        )
+        apply_skip_reason = _apply_skip_reason_display(
+            skip_reason,
+            locale=locale,
+        )
         before_payload = _payload_for_display(change.target_type, change.before)
-        after_payload = _payload_for_display(change.target_type, change.after)
+        config_payload = _payload_for_display(change.target_type, change.config)
+        effective_after = change.before if skip_reason is not None else change.after
+        after_payload = _payload_for_display(change.target_type, effective_after)
         before_name = _display_name(change.before_name, change.before)
-        after_name = _display_name(change.after_name, change.after)
+        config_name = _display_name(change.config_name, change.config)
+        effective_after_name = (
+            change.before_name if skip_reason is not None else change.after_name
+        )
+        after_name = _display_name(effective_after_name, effective_after)
         out.write(
             f"| {action} | {target_type} | {change.target_id or '-'} | "
-            f"{before_name} | {after_name} | {risk} | {bot_managed} | "
-            f"`{_compact(before_payload)}` | `{_compact(after_payload)}` |\n"
+            f"{before_name} | {config_name} | {after_name} | {risk} | {bot_managed} | "
+            f"{apply_skip_reason} | "
+            f"`{_compact(before_payload)}` | `{_compact(config_payload)}` | `{_compact(after_payload)}` |\n"
         )
     for change in diff_result.informational_changes:
         action = action_labels.get(change.action, change.action)
@@ -96,13 +125,15 @@ def render_diff_markdown(
             change.after,
         )
         before_payload = _payload_for_display(change.target_type, change.before)
+        config_payload = _payload_for_display(change.target_type, change.config)
         after_payload = _payload_for_display(change.target_type, change.after)
         before_name = _display_name(change.before_name, change.before)
+        config_name = _display_name(change.config_name, change.config)
         after_name = _display_name(change.after_name, change.after)
         out.write(
             f"| {action} | {target_type} | {change.target_id or '-'} | "
-            f"{before_name} | {after_name} | - | {bot_managed} | "
-            f"`{_compact(before_payload)}` | `{_compact(after_payload)}` |\n"
+            f"{before_name} | {config_name} | {after_name} | - | {bot_managed} | - | "
+            f"`{_compact(before_payload)}` | `{_compact(config_payload)}` | `{_compact(after_payload)}` |\n"
         )
     return out.getvalue().strip()
 
@@ -202,6 +233,33 @@ def _extract_role_bot_managed(
         if payload.get(_APPLY_EXCLUDED_REASON_KEY) == _BOT_MANAGED_SKIP_REASON:
             return True
     return False
+
+
+def _extract_apply_skip_reason(
+    before: dict[str, Any] | None,
+    after: dict[str, Any] | None,
+) -> str | None:
+    for payload in (after, before):
+        if payload is None:
+            continue
+        reason = payload.get(_APPLY_EXCLUDED_REASON_KEY)
+        if isinstance(reason, str) and reason:
+            return reason
+    return None
+
+
+def _apply_skip_reason_display(
+    reason: str | None,
+    *,
+    locale: SupportedLocale,
+) -> str:
+    if reason is None:
+        return "-"
+    if reason == _BOT_MANAGED_SKIP_REASON:
+        return t("render.skip_reason.bot_managed_role", locale)
+    if reason == _ROLE_HIERARCHY_SKIP_REASON:
+        return t("render.skip_reason.role_hierarchy_restriction", locale)
+    return reason
 
 
 def _payload_for_display(
