@@ -58,20 +58,5 @@ updates:
           - "minor"
           - "patch"
 
-  # .github/workflows (all update types in one group; action pins are major tags)
-  - package-ecosystem: "github-actions"
-    directory: "/"
-    schedule:
-      interval: "weekly"
-      day: "monday"
-      time: "09:00"
-      timezone: "Asia/Tokyo"
-    open-pull-requests-limit: 5
-    groups:
-      github-actions:
-        patterns:
-          - "*"
-        update-types:
-          - "major"
-          - "minor"
-          - "patch"
+  # github-actions: omit until action.yml or .github/workflows/*.yml exists.
+  # When added, group major/minor/patch together (action pins are major tags).
